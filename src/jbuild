@@ -1,0 +1,7 @@
+
+(copy_files analyzers/*)
+
+(executable
+ ((name shstats)
+  (public_name shstats)
+  (libraries (ppx_deriving_yojson.runtime libmorbig))))
