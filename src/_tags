@@ -1,0 +1,2 @@
+<analyzers>: include
+true : package(libmorbig)

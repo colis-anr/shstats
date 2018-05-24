@@ -1,18 +1,13 @@
+.PHONY: all debug bench clean
 
-build:
-	jbuilder build @install
+all:
+	$(MAKE) -C src
 
-bench: build
-	make -C bench
-
-install:
-	jbuilder install
-
-uninstall:
-	jbuilder uninstall
+bench:
+	$(MAKE) -C bench
 
 clean:
-	jbuilder clean
-	find -name '*~' -delete
-
-.PHONY: build install uninstall clean
+	$(MAKE) -C src clean
+	$(MAKE) -C bench clean
+	rm -f bin/shparser
+	[ ! -d bin ] || rmdir bin
