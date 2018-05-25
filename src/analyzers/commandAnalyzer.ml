@@ -12,11 +12,11 @@ module Self (*: Analyzer.S*) = struct
 
   let push_exotic_command_level i =
     exotic_command_levels := i :: !exotic_command_levels
-
-  let options = Arg.(align [
-                         "-i", Int push_exotic_command_level, "[level:int] \
-                                                               If a command is used less than [level] time, mark it as exotic."
-                ])
+    
+  let options = [
+      "-i", Arg.Int push_exotic_command_level, "LEVEL If a command is used less than LEVEL time, mark it as exotic" ;
+      "--specification", Arg.String Commands.load_commands_specification, "FILE Load commands specification from FILE"
+    ]
 
   type parsed_argument =
     | Option of word * word list

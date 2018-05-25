@@ -1,7 +1,6 @@
 (** Compute some statistics about a CST. *)
 
 open Commands
-open Options
 
 open CommandAnalyzer
 open VariableAnalyzer
@@ -10,14 +9,33 @@ open MiscAnalyzer
 open FunctionsAnalyzer
 open IdentityAnalyzer
 
-let process (_, file) =
-  let cin = open_in file in
-  let (filename, csts) : string * Libmorbig.CST.complete_command list = input_value cin in
-  Analyzer.process_script filename csts;
-  close_in cin
+let read filename =
+  if Filename.check_suffix filename ".morbig" then
+    (
+      let cin = open_in filename in
+      let (filename, csts) : string * Libmorbig.CST.complete_command list = input_value cin in
+      close_in cin;
+      Some (filename, csts)
+    )
+  else
+    (
+      try
+        Format.eprintf "%s: parsing@." filename;
+        Some (filename, Libmorbig.API.parse_file filename)
+      with
+        Libmorbig.API.SyntaxError _ ->
+        Format.eprintf "%s: syntax error@." filename;
+        None
+    )
 
-let main =
+let process (_, filename) =
+  match read filename with
+  | None -> ()
+  | Some (filename, csts) ->
+     Format.eprintf "%s: processing@." filename;
+     Analyzer.process_script filename csts
+
+let () =
   Options.parse_command_line (Analyzer.options ());
-  Commands.load_commands_specification ();
-  List.iter process (files ());
+  List.iter process (Options.files ());
   Analyzer.output_report ()

@@ -32,7 +32,7 @@ let remember_synonym, canonical_command_name =
 
 let command_specification = ref (fun _ -> assert false)
 
-let load_commands_specification () =
+let load_commands_specification commands_specification =
   let parse_command_option lines = Scanf.(
     let header (lineno, s) =
       try
@@ -90,7 +90,7 @@ let load_commands_specification () =
   let no_comment (_, s) = s = "" || (String.length s > 0 && s.[0] <> '%') in
   let command_options =
     List.map parse_command_option ExtPervasives.(split_list (fun (_, s) -> s = "") (
-      List.filter no_comment (lines_of_channel (open_in !Options.commands_specification))
+      List.filter no_comment (lines_of_channel (open_in commands_specification))
     ))
   in
   let table = Hashtbl.create 13 in

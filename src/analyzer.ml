@@ -41,7 +41,7 @@ let options () =
   List.iter (fun (module A : S) ->
     let activation_option =
       Arg.(
-	"--" ^ A.name,
+	"--enable-" ^ A.name,
 	Unit (activate (module A)),
 	(Printf.sprintf " Activate analyzer `%s'." A.name)
       )

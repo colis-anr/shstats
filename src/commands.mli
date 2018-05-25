@@ -38,7 +38,7 @@ type command_options = {
   }
 
 (** load command specification from a file *)
-val load_commands_specification : unit -> unit
+val load_commands_specification : string -> unit
 
 (** [lookup_command cmd] returns the specification of command [cmd]. *)
 val lookup_command : command_name -> command_options
@@ -52,11 +52,11 @@ val lookup_options : command_name -> option_name -> option_specification
 val lookup_option_number_of_arguments :
   command_name -> option_name -> number_of_arguments
 
-(** [is_option_of_command ?who cmd opt] checks whether [opt] is a known 
+(** [is_option_of_command ?who cmd opt] checks whether [opt] is a known
     option of command [cmd]. [who], when set, is used in error message. *)
 val is_option_of_command :
   ?who_is_asking:string -> command_name -> option_name -> bool
 
-(** [canonical_option_name cmd opt] returns the canonical option name of 
+(** [canonical_option_name cmd opt] returns the canonical option name of
     option [opt] to command [cmd]. *)
 val canonical_option_name : command_name -> option_name -> option_name
