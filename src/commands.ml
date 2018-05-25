@@ -25,9 +25,11 @@ type command_options = {
     specified : bool;
   }
 
+let literal s = Libmorbig.CST.Word (s, [WordLiteral s])
+                     
 let remember_synonym, canonical_command_name =
   let command_synonyms = Hashtbl.create 13 in
-  (fun c c' -> Hashtbl.add command_synonyms (Libmorbig.CST.Word (c', [])) c), (*FIXME*)
+  (fun c c' -> Hashtbl.add command_synonyms (literal c') c), (*FIXME*)
   (fun c -> try Hashtbl.find command_synonyms c with Not_found -> c)
 
 let command_specification =
@@ -43,10 +45,10 @@ let load_commands_specification commands_specification =
 	  let command_synonyms = Str.(split (regexp ",") c) in
 	  let c = match command_synonyms with
 	    | [] -> assert false
-	    | c :: cs -> List.iter (remember_synonym (Libmorbig.CST.Word (c, []))) cs; c (*FIXME*)
+	    | c :: cs -> List.iter (remember_synonym (literal c)) cs; c
 	  in
 	  {
-	    command = Libmorbig.CST.Word (c, []); (*FIXME*)
+	    command = literal c;
 	    accumulated_short_options = b;
 	    start_with_options = s;
             double_dash_for_raw = r;
@@ -77,7 +79,7 @@ let load_commands_specification commands_specification =
 		Exactly (int_of_string d)
 	  in
 	  let options = Str.(split (regexp ",") o) in
-	  { name = List.map (fun o -> Libmorbig.CST.Word (o, [])) options; number_of_arguments }) (*FIXME*)
+	  { name = List.map literal options; number_of_arguments })
       with _ -> error (
 	Format.sprintf "Line %d: Expecting a natural number, '*' or ';'.\n" lineno
       )

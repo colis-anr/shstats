@@ -20,7 +20,6 @@ let read filename =
   else
     (
       try
-        Format.eprintf "%s: parsing@." filename;
         Some (filename, Libmorbig.API.parse_file filename)
       with
         _ ->
@@ -32,8 +31,8 @@ let process total_number_of_files file_number (_, filename) =
   match read filename with
   | None -> ()
   | Some (filename, csts) ->
-     Format.eprintf "[%d/%d] %s: processing@."
-       file_number total_number_of_files filename;
+     Format.eprintf "[%d/%d] %s@."
+       (1+file_number) total_number_of_files filename;
      Analyzer.process_script filename csts
 
 let () =

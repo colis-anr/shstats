@@ -12,7 +12,7 @@ module Self (*: Analyzer.S*) = struct
 
   let push_exotic_command_level i =
     exotic_command_levels := i :: !exotic_command_levels
-    
+
   let options = [
       "-i", Arg.Int push_exotic_command_level, "LEVEL If a command is used less than LEVEL time, mark it as exotic" ;
       "--specification", Arg.String Commands.load_commands_specification, "FILE Load commands specification from FILE"
@@ -67,7 +67,7 @@ module Self (*: Analyzer.S*) = struct
 	| w :: ws ->
 	   let raw_mode =
 	     raw_mode
-             || (command_options.start_with_options && not (is_option w)) 
+             || (command_options.start_with_options && not (is_option w))
              || (command_options.double_dash_for_raw && w = double_dash)
 	   in
 	   if is_option w && not raw_mode then
@@ -141,7 +141,7 @@ module Self (*: Analyzer.S*) = struct
        w :: words_of_suffix' s
 
   and words_of_suffix' s = words_of_suffix s.value
-                         
+
   module StringMap = Map.Make (String)
 
   let expand_variable env (Word (w, _)) =
@@ -180,7 +180,7 @@ module Self (*: Analyzer.S*) = struct
 	  (* ) *)
 
           (* method symbolic_evaluation_of_complete_command' x = symbolic_evaluation_of_complete_command x.value *)
-                
+
 	  method assign = fun var (Word (w, _)) ->
 	    env := StringMap.add var w !env
 
@@ -306,31 +306,31 @@ module Self (*: Analyzer.S*) = struct
   let output_report () =
     Format.printf
       "* Commands
-       ** Synthesis
+** Synthesis
 
-       - The first column is the number of times the command appears in the corpus.
-       - The second column is the number of distinct files where the command is used.
+- The first column is the number of times the command appears in the corpus.
+- The second column is the number of distinct files where the command is used.
 
-       ";
+";
     show_synthesis ();
 
     Format.printf
       "** Details
 
-       For each command, we give their arguments and the number of times the same
-       arguments are used in the corpus.
+For each command, we give their arguments and the number of times the same
+arguments are used in the corpus.
 
-       ";
+";
     show_details ();
 
     Format.printf
       "** Covering
 
-       For each levels provided to the command with the '-i' option, we compute
-       the number of scripts the use at least one command which is exotic given
-       the threshold.
+For each levels provided to the command with the '-i' option, we compute
+the number of scripts the use at least one command which is exotic given
+the threshold.
 
-       ";
+";
     show_covering ()
 
 end
