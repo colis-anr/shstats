@@ -23,19 +23,21 @@ let read filename =
         Format.eprintf "%s: parsing@." filename;
         Some (filename, Libmorbig.API.parse_file filename)
       with
-        Libmorbig.API.SyntaxError _ ->
-        Format.eprintf "%s: syntax error@." filename;
+        _ ->
+        Format.eprintf "%s: parse error@." filename;
         None
     )
 
-let process (_, filename) =
+let process total_number_of_files file_number (_, filename) =
   match read filename with
   | None -> ()
   | Some (filename, csts) ->
-     Format.eprintf "%s: processing@." filename;
+     Format.eprintf "[%d/%d] %s: processing@."
+       file_number total_number_of_files filename;
      Analyzer.process_script filename csts
 
 let () =
   Options.parse_command_line (Analyzer.options ());
-  List.iter process (Options.files ());
+  let files = Options.files () in
+  List.iteri (process (List.length files)) files;
   Analyzer.output_report ()

@@ -30,7 +30,10 @@ let remember_synonym, canonical_command_name =
   (fun c c' -> Hashtbl.add command_synonyms (Libmorbig.CST.Word (c', [])) c), (*FIXME*)
   (fun c -> try Hashtbl.find command_synonyms c with Not_found -> c)
 
-let command_specification = ref (fun _ -> assert false)
+let command_specification =
+  ref (fun _ ->
+      Format.eprintf "In order to run the `command` analyzer, the --specification option is required.@.";
+      exit 2)
 
 let load_commands_specification commands_specification =
   let parse_command_option lines = Scanf.(
