@@ -1,6 +1,7 @@
-.PHONY: all debug bench clean
+.PHONY: build debug bench clean install
+BINDIR=/usr/local/bin
 
-all:
+build:
 	$(MAKE) -C src
 
 bench:
@@ -11,3 +12,9 @@ clean:
 	$(MAKE) -C bench clean
 	rm -f bin/shparser
 	[ ! -d bin ] || rmdir bin
+
+install: build
+	mkdir -p $(BINDIR)
+	cp src/shstats.native $(DESTDIR)/$(BINDIR)/shstats
+
+
