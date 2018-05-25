@@ -43,7 +43,7 @@ let options () =
       Arg.(
 	"--enable-" ^ A.name,
 	Unit (activate (module A)),
-	(Printf.sprintf " Activate analyzer `%s'." A.name)
+	(Format.sprintf " Activate analyzer `%s'." A.name)
       )
     in
     options := activation_option :: A.options @ !options
@@ -63,5 +63,6 @@ let process_script filename csts =
 
 let output_report () =
   foreach_active_analyzer (fun (module A : S) ->
-    A.output_report ()
+      A.output_report ();
+      Format.printf "@."
   )

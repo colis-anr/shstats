@@ -28,11 +28,11 @@ module Self : Analyzer.S = struct
         incr counter
 
       method output_report () =
-        Printf.printf "** %s\n- %d occurrences in %d files\n" name !counter !files_counter;
+        Format.printf "** %s\n- %d occurrences in %d files\n" name !counter !files_counter;
         if !files_counter > 0 then
           (
-            Printf.printf "*** Files\n";
-            List.iter (Printf.printf "- [[file:%s]]\n") !filenames
+            Format.printf "*** Files\n";
+            List.iter (Format.printf "- [[file:%s]]\n") !filenames
           )
     end
 
@@ -86,23 +86,23 @@ module Self : Analyzer.S = struct
            self#count_dollars_in_wordlist filename "" (*FIXME: (pp_to_string pp_for_clause for_clause)*) wordlist'.value
 
       method output_report () =
-        Printf.printf
+        Format.printf
           "** %s\n%d occurrences in %d files\n"
           name !counter !files_counter;
         
-        Printf.printf
+        Format.printf
           "*** %d (%d%%) contain a variable\n"
           (variables_counter#n_occurrences())
           (100 * variables_counter#n_occurrences() / !counter);
         variables_counter#output_occurrences();
         
-        Printf.printf
+        Format.printf
           "*** %d (%d%%) contain a subshell\n"
           (subshells_counter#n_occurrences())
           (100 * subshells_counter#n_occurrences() / !counter);
         subshells_counter#output_occurrences();
         
-        Printf.printf
+        Format.printf
           "*** %d (%d%%) contain a glob\n"
           (globs_counter#n_occurrences())
           (100 * globs_counter#n_occurrences() / !counter);
@@ -125,7 +125,7 @@ module Self : Analyzer.S = struct
 
       method output_report () =
         super#output_report ();
-        Printf.printf "*** Details\n- %d (%d%%) of them are matching on $1\n" !dollar1 (100 * !dollar1 / !counter)
+        Format.printf "*** Details\n- %d (%d%%) of them are matching on $1\n" !dollar1 (100 * !dollar1 / !counter)
     end
 
     class whileHandler (name: string) = object (self)
@@ -186,7 +186,7 @@ module Self : Analyzer.S = struct
 
       method output_report () =
         super#output_report ();
-        Printf.printf "*** Details\n- %d (%d%%) of them are using 'read'\n" !reads (100 * !reads / !counter)
+        Format.printf "*** Details\n- %d (%d%%) of them are using 'read'\n" !reads (100 * !reads / !counter)
     end
   end
 
@@ -279,7 +279,7 @@ module Self : Analyzer.S = struct
     List.iter ((new Counter.iterator')#visit_complete_command ()) csts
 
   let output_report () =
-    Printf.printf "* Structures\n";
+    Format.printf "* Structures\n";
     List.iter (fun (_, h) -> h#output_report ()) base_handlers;
     for_handler#output_report ();
     case_handler#output_report ();

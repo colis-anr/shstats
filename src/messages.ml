@@ -1,5 +1,5 @@
 let message what consequence ?filename msg =
-  Printf.eprintf "%s[%s] %s\n"
+  Format.eprintf "%s[%s] %s\n"
     (match filename with None -> "" | Some f -> f ^":0:0:\n")
     what
     msg;

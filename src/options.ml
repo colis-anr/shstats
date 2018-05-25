@@ -1,12 +1,12 @@
 let usage_message =
-  Printf.sprintf
+  Format.sprintf
     "%s [options]\n\nRun several statistical analysis on the files provided by standard input.\n\nOptions are:"
     Sys.executable_name
 
 let list_of_files = ref "-"
 
 let get_arguments options argument =
-  Printf.eprintf "Unexpected argument: %s" argument;
+  Format.eprintf "Unexpected argument: %s" argument;
   Arg.usage options usage_message;
   exit 2
 
@@ -31,7 +31,7 @@ let files () =
          ( Format.eprintf "Reading files from `%s`@." !list_of_files;
            open_in !list_of_files ))
   in
-  Printf.printf "#+TITLE: Statistics report\n";
-  Printf.printf "#+STARTUP: indent inlineimages hideblocks\n\n";
-  Printf.printf "Processing %d files.\n\n%!" (List.length files);
+  Format.printf "#+TITLE: Statistics report\n";
+  Format.printf "#+STARTUP: indent inlineimages hideblocks\n\n";
+  Format.printf "Processing %d files.\n@." (List.length files);
   files

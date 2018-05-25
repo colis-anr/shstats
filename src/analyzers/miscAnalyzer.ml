@@ -24,12 +24,12 @@ module Self : Analyzer.S = struct
     method output_occurrences ?(with_name=true) () =
       if !files <> [] then
         (
-          Printf.printf "*** %s\n" (if with_name then name else "Occurrences");
-          List.iter (fun (filename, string) -> Printf.printf "- [[file:%s]]\n  %s\n" filename string) !files
+          Format.printf "*** %s\n" (if with_name then name else "Occurrences");
+          List.iter (fun (filename, string) -> Format.printf "- [[file:%s]]\n  %s\n" filename string) !files
         )
       
     method output_report () =
-      Printf.printf "** %s\n- %d occurrences in %d files\n" name !value (List.length !files);
+      Format.printf "** %s\n- %d occurrences in %d files\n" name !value (List.length !files);
       self#output_occurrences ~with_name:false ()
   end
 
@@ -76,7 +76,7 @@ module Self : Analyzer.S = struct
         filename representation
 
     method output_report () =
-      Printf.printf "** Dynamic commands
+      Format.printf "** Dynamic commands
 
 |           | With quotes | Without quotes | Total |
 |-----------|-------------|----------------|-------|
@@ -175,7 +175,7 @@ module Self : Analyzer.S = struct
     List.iter ((new Counter.iterator')#visit_complete_command ()) csts
 
   let output_report () =
-    Printf.printf "* Miscellaenous\n";
+    Format.printf "* Miscellaenous\n";
     ifs_counter#output_report ();
     cmd_string_counter#output_report ();
 end

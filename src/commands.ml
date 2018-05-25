@@ -55,7 +55,7 @@ let load_commands_specification commands_specification =
 	  }
 	)
       with _ -> error (
-	Printf.sprintf "Line %d: Syntax error.\n" lineno
+	Format.sprintf "Line %d: Syntax error.\n" lineno
       )
     in
     let option (lineno, s) =
@@ -79,7 +79,7 @@ let load_commands_specification commands_specification =
 	  let options = Str.(split (regexp ",") o) in
 	  { name = List.map (fun o -> Libmorbig.CST.Word (o, [])) options; number_of_arguments }) (*FIXME*)
       with _ -> error (
-	Printf.sprintf "Line %d: Expecting a natural number, '*' or ';'.\n" lineno
+	Format.sprintf "Line %d: Expecting a natural number, '*' or ';'.\n" lineno
       )
     in
     let command = header (List.hd lines) in
@@ -135,13 +135,13 @@ let is_option_of_command ?(who_is_asking="") command option =
       option_shape
   with Not_found ->
     if option_shape then warning (
-      Printf.sprintf
+      Format.sprintf
 	"`%s': unknown option `%s' %s."
 	(Libmorbig.CSTHelpers.unWord command) s
 	(if who_is_asking = "" then
 	    ""
 	 else
-	    Printf.sprintf "\n(See %s)" who_is_asking)
+	    Format.sprintf "\n(See %s)" who_is_asking)
     );
     false
 

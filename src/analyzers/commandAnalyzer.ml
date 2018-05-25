@@ -32,7 +32,7 @@ module Self (*: Analyzer.S*) = struct
 
   let rec string_of_arguments_scheme = function
     | SimpleArguments ->
-       Printf.sprintf "(arguments)"
+       Format.sprintf "(arguments)"
     | UseOption (Word (option, _), k, scheme) ->
        option ^ " "
        ^ String.concat " " (ExtPervasives.repeat k (fun i -> "arg" ^ string_of_int i))
@@ -79,7 +79,7 @@ module Self (*: Analyzer.S*) = struct
 		     Option (w, []) :: aux raw_mode ws
 	          | Unhandled ->
 		     warning ~filename (
-		               Printf.sprintf "Detected usage of unhandled option %s for %s."
+		               Format.sprintf "Detected usage of unhandled option %s for %s."
 		                              (unWord w)
 		                              (unWord command)
 		             );
@@ -94,7 +94,7 @@ module Self (*: Analyzer.S*) = struct
 	          | UseArgumentAsEOF ->
 		     match ws with
 		     | [] ->
-		        error (Printf.sprintf "There is no EOF marker specified in command %s."
+		        error (Format.sprintf "There is no EOF marker specified in command %s."
 			                      (unWord command))
 		     | eofmarker :: ws ->
 		        select_option_arguments raw_mode w ws (( = ) eofmarker)
@@ -242,7 +242,7 @@ module Self (*: Analyzer.S*) = struct
     |> List.iter (fun (Word (command, _), (count, count_distinct)) ->
            let s = string_of_command command in
            let s = if s = "[" then s else "[[" ^ s ^ "]]" in
-           Printf.printf "%05d %05d %s\n" count count_distinct s)
+           Format.printf "%05d %05d %s\n" count count_distinct s)
 
   let number_of_options_occurrences categories =
     let count = Hashtbl.create 13 in
@@ -260,17 +260,17 @@ module Self (*: Analyzer.S*) = struct
         ^ String.concat " " (List.map unWord options)
     in
     let show_category command (scheme, instances) =
-      Printf.printf "**** [%05d] %s\n" (List.length instances) (string_of_arguments_scheme scheme);
-      List.iter (fun a -> Printf.printf "     - %s\n" (show_options command a)) instances
+      Format.printf "**** [%05d] %s\n" (List.length instances) (string_of_arguments_scheme scheme);
+      List.iter (fun a -> Format.printf "     - %s\n" (show_options command a)) instances
     in
     let l = ref [] in
     Hashtbl.iter (fun k (a, f) -> l := (k, a, List.length f) :: !l) commands;
     l := List.sort (fun (_, _, x) (_, _, y) -> - compare x y) !l;
     List.iter (fun (Word (command, _), categories, nb_occurrences) ->
-        Printf.printf "*** [%05d] %s \n" nb_occurrences (string_of_command command);
-        Printf.printf "**** Number of occurrences per options\n";
+        Format.printf "*** [%05d] %s \n" nb_occurrences (string_of_command command);
+        Format.printf "**** Number of occurrences per options\n";
         List.iter
-	  (fun (o, i) -> Printf.printf "      - [%05d] %s\n" i o)
+	  (fun (o, i) -> Format.printf "      - [%05d] %s\n" i o)
 	  (number_of_options_occurrences categories);
         List.(
 	  ExtPervasives.hashtbl_to_list categories
@@ -293,20 +293,19 @@ module Self (*: Analyzer.S*) = struct
           ) !exotic_command_levels
       ) commands;
     let nb_files = List.length (Options.files ()) in
-    Printf.printf "  |-------|-------|--------|\n";
-    Printf.printf "  | Level |       |        |\n";
-    Printf.printf "  |-------|-------|--------|\n";
+    Format.printf "  |-------|-------|--------|\n";
+    Format.printf "  | Level |       |        |\n";
+    Format.printf "  |-------|-------|--------|\n";
     List.iteri (fun i level ->
         let nb = StringSet.cardinal use_exotic_commands.(i) in
         let p = float_of_int nb *. 100. /. float_of_int nb_files in
-        Printf.printf "  | %05d | %05d | %5.2f%% |\n" level nb p
+        Format.printf "  | %05d | %05d | %5.2f%% |\n" level nb p
       ) !exotic_command_levels;
-    Printf.printf "  |-------|-------|--------|\n"
+    Format.printf "  |-------|-------|--------|\n"
 
   let output_report () =
-    Printf.printf
-      "
-       * Commands
+    Format.printf
+      "* Commands
        ** Synthesis
 
        - The first column is the number of times the command appears in the corpus.
@@ -315,7 +314,7 @@ module Self (*: Analyzer.S*) = struct
        ";
     show_synthesis ();
 
-    Printf.printf
+    Format.printf
       "** Details
 
        For each command, we give their arguments and the number of times the same
@@ -324,7 +323,7 @@ module Self (*: Analyzer.S*) = struct
        ";
     show_details ();
 
-    Printf.printf
+    Format.printf
       "** Covering
 
        For each levels provided to the command with the '-i' option, we compute

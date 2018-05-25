@@ -106,17 +106,16 @@ module Self : Analyzer.S = struct
 
   let show =
     Hashtbl.iter (fun (Name v) fs ->
-      Printf.printf "*** %s\n" v;
-      List.iter (fun f -> Printf.printf "    - [[file:%s]]\n" f) fs
+      Format.printf "*** %s\n" v;
+      List.iter (fun f -> Format.printf "    - [[file:%s]]\n" f) fs
     )
 
   let show_constants () = show constants
   let show_variables () = show variables
 
   let output_report () =
-    Printf.printf
-"
-* Variables
+    Format.printf
+"* Variables
 
   For each filename, if a variable is assigned twice, it is marked as a
   \"real\" variable. Otherwise, it is marked as a constant. Notice that
@@ -129,13 +128,13 @@ module Self : Analyzer.S = struct
   - Number of distinct variable identifiers: %d
 " (number_of_constants ()) (number_of_variables ()) (number_of_distinct_variables ());
 
-  Printf.printf
+  Format.printf
 "
 ** Constants
 ";
   show_constants ();
 
-  Printf.printf
+  Format.printf
 "
 ** Real variables
 ";
