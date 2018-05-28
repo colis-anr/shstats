@@ -155,21 +155,29 @@ module Self : Analyzer.S = struct
       SGraph.print (i#get_dep_graph()) ppf_cycles (fun x -> x);
       Format.fprintf ppf_cycles "@]#+END_SRC@.@]"
 
-  let output_report () =
-    Format.printf "* Functions\n- %d functions declarations in %d files\n** Occurrences@." (functions_counter#n_occurrences()) (functions_counter#n_files());
-    functions_counter#output_occurrences ();
+  let output_report path =
+    let path = path ^ ".org" in
+    let oc = open_out path in
+    let fmt = Format.formatter_of_out_channel oc in
+
+    Format.fprintf fmt "* Functions\n- %d functions declarations in %d files\n** Occurrences@." (functions_counter#n_occurrences()) (functions_counter#n_files());
+    functions_counter#output_occurrences fmt;
 
     let duplicates = Buffer.contents buf_duplicates in
     if duplicates = "" then
-      Format.printf "** No duplicates\n"
+      Format.fprintf fmt "** No duplicates\n"
     else
-      Format.printf "** Duplicates\n%s" duplicates;
+      Format.fprintf fmt "** Duplicates\n%s" duplicates;
 
     let cycles = Buffer.contents buf_cycles in
     if cycles = "" then
-      Format.printf "** No cycles\n"
+      Format.fprintf fmt "** No cycles\n"
     else
-      Format.printf "** Cycles\n%s" cycles
+      Format.fprintf fmt "** Cycles\n%s" cycles;
+
+    flush oc;
+    close_out oc;
+    false
 end
 
 let install = Analyzer.register (module Self)

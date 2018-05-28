@@ -21,16 +21,16 @@ module Self : Analyzer.S = struct
           files := (filename, string) :: !files;
       incr value
 
-    method output_occurrences ?(with_name=true) () =
+    method output_occurrences ?(with_name=true) fmt =
       if !files <> [] then
         (
-          Format.printf "*** %s\n" (if with_name then name else "Occurrences");
-          List.iter (fun (filename, string) -> Format.printf "- [[file:%s]]\n  %s\n" filename string) !files
+          Format.fprintf fmt "*** %s\n" (if with_name then name else "Occurrences");
+          List.iter (fun (filename, string) -> Format.fprintf fmt "- [[file:%s]]\n  %s\n" filename string) !files
         )
       
-    method output_report () =
-      Format.printf "** %s\n- %d occurrences in %d files\n" name !value (List.length !files);
-      self#output_occurrences ~with_name:false ()
+    method output_report fmt =
+      Format.fprintf fmt "** %s\n- %d occurrences in %d files\n" name !value (List.length !files);
+      self#output_occurrences ~with_name:false fmt
   end
 
   class cmd_string_counter = object (self)
@@ -75,8 +75,8 @@ module Self : Analyzer.S = struct
       )
         filename representation
 
-    method output_report () =
-      Format.printf "** Dynamic commands
+    method output_report fmt =
+      Format.fprintf fmt "** Dynamic commands
 
 |           | With quotes | Without quotes | Total |
 |-----------|-------------|----------------|-------|
@@ -105,14 +105,14 @@ module Self : Analyzer.S = struct
 
                     0 0 0;
       
-      param_at_counter#output_occurrences ();
-      param_at_quoted_counter#output_occurrences ();
-      param_star_counter#output_occurrences ();
-      param_star_quoted_counter#output_occurrences ();
-      variables_counter#output_occurrences ();
-      variables_quoted_counter#output_occurrences ();
-      subprocess_counter#output_occurrences ();
-      subprocess_quoted_counter#output_occurrences ()
+      param_at_counter#output_occurrences fmt;
+      param_at_quoted_counter#output_occurrences fmt;
+      param_star_counter#output_occurrences fmt;
+      param_star_quoted_counter#output_occurrences fmt;
+      variables_counter#output_occurrences fmt;
+      variables_quoted_counter#output_occurrences fmt;
+      subprocess_counter#output_occurrences fmt;
+      subprocess_quoted_counter#output_occurrences fmt
   end                                  
                                
   let ifs_counter = new counter "IFS" 
@@ -174,10 +174,16 @@ module Self : Analyzer.S = struct
     in
     List.iter ((new Counter.iterator')#visit_complete_command ()) csts
 
-  let output_report () =
-    Format.printf "* Miscellaenous\n";
-    ifs_counter#output_report ();
-    cmd_string_counter#output_report ();
+  let output_report path =
+    let path = path ^ ".org" in
+    let oc = open_out path in
+    let fmt = Format.formatter_of_out_channel oc in
+    Format.fprintf fmt "#+TITLE: Miscellaenous Analyzer\n";
+    ifs_counter#output_report fmt;
+    cmd_string_counter#output_report fmt;
+    flush oc;
+    close_out oc;
+    false
 end
 
 let install = Analyzer.register (module Self)

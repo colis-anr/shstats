@@ -5,8 +5,7 @@ module Self : Analyzer.S = struct
   let process_script filename csts =
     ()
 
-  let output_report () =
-    ()
+  let output_report _ = false
 end
 
 let install = Analyzer.register (module Self)

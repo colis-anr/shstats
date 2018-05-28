@@ -31,7 +31,7 @@ let process total_number_of_files file_number (_, filename) =
   match read filename with
   | None -> ()
   | Some (filename, csts) ->
-     Format.eprintf "[%d/%d] %s@."
+     Format.eprintf "[%d/%d] %s\r@?"
        (1+file_number) total_number_of_files filename;
      Analyzer.process_script filename csts
 
@@ -39,4 +39,4 @@ let () =
   Options.parse_command_line (Analyzer.options ());
   let files = Options.files () in
   List.iteri (process (List.length files)) files;
-  Analyzer.output_report ()
+  Analyzer.output_report (Options.get_report_path ())

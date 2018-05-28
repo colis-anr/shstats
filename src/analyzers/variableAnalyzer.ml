@@ -113,8 +113,11 @@ module Self : Analyzer.S = struct
   let show_constants () = show constants
   let show_variables () = show variables
 
-  let output_report () =
-    Format.printf
+  let output_report path =
+    let path = path ^ ".org" in
+    let oc = open_out path in
+    let fmt = Format.formatter_of_out_channel oc in
+    Format.fprintf fmt
 "* Variables
 
   For each filename, if a variable is assigned twice, it is marked as a
@@ -128,17 +131,21 @@ module Self : Analyzer.S = struct
   - Number of distinct variable identifiers: %d
 " (number_of_constants ()) (number_of_variables ()) (number_of_distinct_variables ());
 
-  Format.printf
+  Format.fprintf fmt
 "
 ** Constants
 ";
   show_constants ();
 
-  Format.printf
+  Format.fprintf fmt
 "
 ** Real variables
 ";
-  show_variables ()
+  show_variables ();
+
+  flush oc;
+  close_out oc;
+  false
 
 end
 

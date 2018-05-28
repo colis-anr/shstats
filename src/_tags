@@ -1,2 +1,3 @@
 <analyzers>: include
 true : package(libmorbig)
+true: use_unix
