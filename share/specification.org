@@ -1,0 +1,566 @@
+% *FORMAT*
+%
+% * command,synonym,.. b1 b2 b3
+%
+%   where:
+%   - b1: boolean (options are accumulated)
+%   - b2: boolean (options are at the beginning)
+%   - b3: boolean (everything after -- is a simple argument)
+%
+% ** -option,-synonym,.. (n|*|;|#|?)
+%
+% where:
+% - "n" is an integer representing the number of expected arguments.
+% - "*" represents an arbitrary number of arguments (everything to the next option).
+% - ";" represents an arbitrary number of arguments (everything to the next semicolon).
+% - "#" represents an arbitrary number of arguments (the end marker is the next argument).
+% - "?" not to be implemented.
+%
+% Command descriptions are separated by empty lines.
+%
+% (A line starting with a '%' is a comment.)
+%
+* addgroup false false false
+** --conf 1
+** --disabled-login 0
+** --disabled-password 0
+** --force-badname 0
+** --gecos 1
+** --gid 1
+** --group 0
+** --help,-h 0
+** --home 1
+** --shell 1
+** --ingroup 1
+** --no-create-home 0
+** --quiet,-q 0
+** --debug 0
+** --system 0
+** --uid 1
+** --firstuid 1
+** --lastuid 1
+** --add_extra_groups 0
+** --version,-v 0
+
+* adduser false false false
+** --conf 1
+** --disabled-login 0
+** --disabled-password 0
+** --force-badname 0
+** --gecos 1
+** --gid 1
+** --group 0
+** --help,-h 0
+** --home 1
+** --shell 1
+** --ingroup 1
+** --no-create-home 0
+** --quiet,-q 0
+** --debug 0
+** --system 0
+** --uid 1
+** --firstuid 1
+** --lastuid 1
+** --add_extra_groups 0
+** --version,-v 0
+
+* cat true false false
+** -A,--show-all 0
+** -b,--number-nonblank 0
+** -e 0
+** -E,--show-ends 0
+** -n,--number 0
+** -s,--squeeze-blank 0
+** -t 0
+** -T,--show-tabs 0
+** -u 0
+** -v,--show-nonprinting 0
+** --help 0
+** --version 0
+** - 0
+
+* chmod true false true
+** -c,--changes 0
+** -f,--silent,--quiet 0
+** -v,--verbose 0
+** --no-preserve-root 0
+** --preserve-root 0
+** --reference 1
+** -R,--recursive 0
+** --help 0
+** --version 0
+
+* chown true true false
+** -c,--changes 0
+** -f,--silent,--quiet 0
+** -v,--verbose 0
+** -h,--dereference 0
+** --from 1
+** --no-preserve-root 0
+** --preserve-root 0
+** --reference 1
+** -R,--recursive 0
+** -H 0
+** -L 0
+** -P 0
+** --help 0
+** --version 0
+
+* cp true true false
+** -a,-pPR,--archive 0
+** --attributes-only 0
+** --backup 1
+** -b 0
+** --copy-contents 0
+** -d 0
+** -f,--force 0
+** -i,--interactive 0
+** -H 0
+** -l,--link 0
+** -L,--dereference 0
+** -n,--no-clobber 0
+** -P,--no-dereference 0
+** -p 0
+** --preserve 1
+** --no-preserve 1
+** --parents 0
+** -R,-r,--recursive 0
+** --reflink 1
+** --remove-desitination 0
+** --sparse 1
+** --strip-trailing-dashes 0
+** -s,--symbolic-link 0
+** -S,--suffix 1
+** -t,--target-directory 1
+** -T,--no-target-directory 0
+** -u,--update 0
+** -v,--verbose 0
+** -x,--one-file-system 0
+** -Z 0
+** --context 1
+** --help 0
+** --version 0  
+
+* delgroup false false false
+** --conf 1
+** --group 0
+** --help,-h 0
+** --quiet,-q 0
+** --system 0
+** --backup 0
+** --backup-to 1
+** --remove-home 0
+** --remove-all-files 0
+** --only-if-empty 0
+** --version,-v 0
+
+* deluser true false false
+** --conf 1
+** --group 0
+** --help,-h 0
+** --quiet,-q 0
+** --system 0
+** --backup 0
+** --backup-to 0
+** --force 0
+** --only-if-empty 0
+** --remove-home 0
+** --remove-all-files 0
+** --version,-v 0
+
+* dkpg false false false
+** -i,--install 1
+** --unpack 1
+** --configure 1
+** --triggers-only 1
+** -r,--remove 1
+** -P,--purge 1
+** -V,--verify 1
+** --update-avail,--merge-avail 1
+** -A,--record-avail 1
+** --forget-old-unavail 0
+** --clear-avail 0
+** -C,--audit 1
+** --get-selections 1
+** --set-selections 0
+** --clear-selections 0
+** --yet-to-unpack 0
+** --add-architecture 1
+** --remove-architecture 1
+** --print-architecture 0
+** --print-foreign-architectures 0
+** --compare-versions 3
+** -?,--help 0
+** --force-help 0
+** --debug 1
+** -Dh 0
+** --version 0
+** --abort-after 1
+** -B,--auto-deconfigure 0
+** -Doctal 0
+** --force-all 0
+** --force-downgrade 0
+** --force-configure-any 0
+** --force-hold 0
+** --force-remove-reinstreq 0
+** --force-remove-essential 0
+** --force-depends 0
+** --force-depends-version 0
+** --force-breaks 0
+** --force-conflicts 0
+** --force-confmiss 0
+** --force-confnew 0
+** --force-confold 0
+** --force-confdef 0
+** --force-confask 0
+** --force-overwrite 0
+** --force-overwrite-dir 0
+** --force-overwrite-diverted 0
+** --force-unsafe-io 0
+** --force-architecture 0
+** --force-bad-version 0
+** --force-bad-path 0
+** --force-not-root 0
+** --force-bad-verify 0
+** --no-force-all 0
+** --no-force-downgrade 0
+** --no-force-configure-any 0
+** --no-force-hold 0
+** --no-force-remove-reinstreq 0
+** --no-force-remove-essential 0
+** --no-force-depends 0
+** --no-force-depends-version 0
+** --no-force-breaks 0
+** --no-force-conflicts 0
+** --no-force-confmiss 0
+** --no-force-confnew 0
+** --no-force-confold 0
+** --no-force-confdef 0
+** --no-force-confask 0
+** --no-force-overwrite 0
+** --no-force-overwrite-dir 0
+** --no-force-overwrite-diverted 0
+** --no-force-unsafe-io 0
+** --no-force-architecture 0
+** --no-force-bad-version 0
+** --no-force-bad-path 0
+** --no-force-not-root 0
+** --no-force-bad-verify 0
+** --refuse-all 0
+** --refuse-downgrade 0
+** --refuse-configure-any 0
+** --refuse-hold 0
+** --refuse-remove-reinstreq 0
+** --refuse-remove-essential 0
+** --refuse-depends 0
+** --refuse-depends-version 0
+** --refuse-breaks 0
+** --refuse-conflicts 0
+** --refuse-confmiss 0
+** --refuse-confnew 0
+** --refuse-confold 0
+** --refuse-confdef 0
+** --refuse-confask 0
+** --refuse-overwrite 0
+** --refuse-overwrite-dir 0
+** --refuse-overwrite-diverted 0
+** --refuse-unsafe-io 0
+** --refuse-architecture 0
+** --refuse-bad-version 0
+** --refuse-bad-path 0
+** --refuse-not-root 0
+** --refuse-bad-verify 0
+** --ignore-depends 1
+** --no-act,--dry-run,--simulate 0
+** -R,--recursive 0
+** -G 0
+** --admindir 1
+** --instdir 1
+** --root 1
+** -O,--selected-only 0
+** -E,--skip-same-version 0
+** --pre-invoke 1
+** --post-invoke 1
+** --path-exclude 1
+** --path-include 1
+** --verify-format 1
+** --status-fd 1
+** --status-logger 1
+** --log 1
+** --no-debsig 0
+** --no-triggers 0
+** --triggers 0
+** -l,--list *
+** -s,--status *
+** -L,--listfiles *
+** -S,--search *
+** -p,--print-avail *
+
+* dpkg-maintscript-helper false true true
+** supports *
+** rm_conffile *
+** mv_conffile *
+** symlink_to_dir *
+** dir_to_symlink *
+
+* echo true true false
+** -n 0
+** -e 0
+** -E 0
+** --help 0
+** --version 0
+
+* find false false false
+** -P 0
+** -L 0
+** -H 0
+** -D *
+** -O0 0
+** -O1 0
+** -O2 0
+** -O3 0
+** -d 0
+** -daystart 0
+** -depth 0
+** -follow 0
+** -help,--help 0
+** -ignore_readdir_race 0
+** -maxdepth 1
+** -mindepth 1
+** -mount 0
+** -noignore_readdir_race 0
+** -noleaf 0
+** -regextype 1
+** -version,--version 0
+** -warn 0
+** -nowarn 0
+** -xdev 0
+** -amin 1
+** -anewer 1
+** -atime 1
+** -cmin 1
+** -cnewer 1
+** -ctime 1
+** -empty 0
+** -executable 0
+** -false 0
+** -fstype 1
+** -gid 1
+** -group 1
+** -ilname 1
+** -iname 1
+** -inum 1
+** -ipath 1
+** -iregex 1
+** -iwholename 1
+** -links 1
+** -lname 1
+** -mmin 1
+** -mtime 1
+** -name 1
+** -newer 1
+** -newerXY 1
+** -nogroup 0
+** -nouser 0
+** -path,-wholename 1
+** -perm 1
+** -readable 0
+** -regex 1
+** -samefile 1
+** -size 1
+** -true  0
+** -type 0
+** -uid 1
+** -used 1
+** -user 1
+** -writable 0
+** -xtype 1
+** -delete 0
+** -exec ;
+** -execdir ;
+** -fls 1
+** -fprint 1
+** -fprint0 1
+** -fprintf 2
+** -ls 0
+** -ok ;
+** -okdir ;
+** -print 0
+** -print0 0
+** -printf 1
+** -prune 0
+** -quit 0
+** -print0,-fprint0 0
+** -ls,-fls 0
+** -printf,-fprintf 0
+** -print,-fprint 0
+** -not 2
+** -a,-and 2
+** -0,-or 2
+
+* grep true false false
+** -E,--extended-regexp 0
+** -F,--fixed-strings 0
+** -G,--basic-regexp 0
+** -P,--perl-regexp 0
+** -c,--count 0
+** -e,--regexp 1
+** -f,--file 1
+** -i,--ignore-case 0
+** -l,--files-with-matches 0
+** -n 0
+** -q,--quit,--silent 0
+** -r,--recursive 0
+** -R,--dereference-recursive 0
+** -s 0
+** -v,--invert-match 0
+** -w,--word-regexp 0
+** -x 0
+** -z,--null-data 0
+** -a,--text 0
+** -h,--no-filename 0
+
+* ldconfig true false false
+** -c,--format 1
+** -C 1
+** -f 1
+** -i,--ignore-aux-cache 0
+** -l 0
+** -n 0
+** -N 0
+** -p,--print-cache 0
+** -r 1
+** -v,--verbose 0
+** -V,--version 0
+** -X 0
+
+* ln true false false
+** --backup 1
+** -b 0
+** -d,-F,--directory 0
+** -f,--force 0
+** -i,--interactive 0
+** -L,--logical 0
+** -n,--no-dereference 0
+** -P,--physical 0
+** -r,--relative 0
+** -s,--symbolic 0
+** -S,--suffix 1
+** -t,--target-directory 1
+** -T,--no-target-directory 0
+** -v,--verbose 0
+** --help 0
+** --version 0
+
+* mkdir true true false
+** -m,--mode 1
+** -p,--parents 0
+** -v,--verbose 0
+** -Z 0
+** --context 1
+** --help 0
+** --version 0
+
+* mv true false true
+** -b 0
+** -f 0
+** -i 0
+** -n 0
+** -u,--update 0
+** -v,--verbose 0 
+
+* rm true false true
+** -f,--force 0
+** -r,-R,--recursive 0
+** -v,--verbose 0
+** -i 0
+** -I 0
+** --one-file-system 0
+** --no-preserve-root 0
+** --preserve-root 0
+** -d,--dir 0
+
+* rmdir true false true
+** --ignore-fail-on-non-empty 0
+** -p,--parents 0
+** --verbose 0
+** --help 0
+** --version 0
+
+* set true false false
+** -e 0
+** -u 0
+** -x 0
+** -o 0
+** -f 0
+** -v 0
+** +e 0
+** +u 0   
+** -- 0
+
+* test,[ false false false
+** -b 1
+** -c 1
+** -d 1
+** -e 1
+** -f 1
+** -g 1
+** -h 1
+** -k 1
+** -n 1
+** -p 1
+** -r 1
+** -s 1
+** -t 1
+** -u 1
+** -w 1
+** -x 1
+** -z 1
+** -L 1
+** -O 1
+** -G 1
+** -S 1
+** -nt -2
+** -ot -2
+** -ef -2
+** -eq -2
+** -ne -2
+** -gt -2
+** -ge -2
+** -lt -2
+** -le -2
+** -a -2
+** -o -2
+
+* touch true false false
+** -a 0
+** -c 0
+** -d 1
+** -m 0
+** -r 1
+** -t 1
+
+* which true true false
+** -a 0
+
+* xargs true true false
+** -0,--null 0
+** -a,--arg-file= 1
+** -d,--delimiter= 1
+** -E 1
+** -e,--eof= #
+** -I 1
+** -i,--replace= ?
+** -L 1
+** -l,--max-lines= ?
+** -n,--max-args= 1
+** -P,--max-procs= 1
+** -p,--interactive 0
+** --process-slot= 1
+** -r,--no-run-if-empty 0
+** -s,--max-chars= 1
+** --show-limits 0
+** -t,--verbose 0
+** -x,--exit 0
+** --help 0
+** --version 0
