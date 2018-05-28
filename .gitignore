@@ -1,5 +1,7 @@
 /_build
 /shstats.install
 
+/bin
+
 *~
 *#
