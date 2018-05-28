@@ -7,7 +7,6 @@ open VariableAnalyzer
 open StructuresAnalyzer
 open MiscAnalyzer
 open FunctionsAnalyzer
-open IdentityAnalyzer
 
 let read filename =
   if Filename.check_suffix filename ".morbig" then
@@ -39,4 +38,4 @@ let () =
   Options.parse_command_line (Analyzer.options ());
   let files = Options.files () in
   List.iteri (process (List.length files)) files;
-  Analyzer.output_report (Options.get_report_path ())
+  Analyzer.output_report ()

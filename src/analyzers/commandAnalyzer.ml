@@ -303,14 +303,12 @@ module Self (*: Analyzer.S*) = struct
       ) !exotic_command_levels;
     Format.fprintf fmt "  |-------|-------|--------|\n"
 
-  let output_report path =
-    let path = path ^ ".org" in
-    let oc = open_out path in
-    let fmt = Format.formatter_of_out_channel oc in
-    Format.fprintf fmt
-      "#+TITLE: Command Analyzer Report
+  let output_report () =
+    let fmt = Report.open_file name in
+    Report.print_headers fmt "Command Analyzer Report";
 
-- The first column is the number of times the command appears in the corpus.
+    Format.fprintf fmt
+      "- The first column is the number of times the command appears in the corpus.
 - The second column is the number of distinct files where the command is used.
 
 ";
@@ -334,9 +332,7 @@ the threshold.
 
 ";
     show_covering fmt;
-    flush oc;
-    close_out oc;
-    false
+    Report.close_file fmt
 end
 
 let install = Analyzer.register (module Self)

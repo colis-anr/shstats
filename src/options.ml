@@ -6,12 +6,6 @@ let usage_message =
 let list_of_files = ref ""
 let report_path = ref ""
 
-let get_report_path () =
-  match !report_path with
-  | "" -> Format.eprintf "--report-path is mandatory@.";
-          exit 1
-  | path -> path
-                
 let anonymous_argument options argument =
   Format.eprintf "Unexpected argument: %s" argument;
   Arg.usage options usage_message;

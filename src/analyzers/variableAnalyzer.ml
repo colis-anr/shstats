@@ -104,19 +104,17 @@ module Self : Analyzer.S = struct
       cardinal (union (names_of_table constants) (names_of_table variables))
     )
 
-  let show =
+  let show fmt =
     Hashtbl.iter (fun (Name v) fs ->
-      Format.printf "*** %s\n" v;
-      List.iter (fun f -> Format.printf "    - [[file:%s]]\n" f) fs
+      Format.fprintf fmt "*** %s\n" v;
+      List.iter (fun f -> Format.fprintf fmt "    - [[file:%s]]\n" f) fs
     )
 
-  let show_constants () = show constants
-  let show_variables () = show variables
+  let show_constants fmt = show fmt constants
+  let show_variables fmt = show fmt variables
 
-  let output_report path =
-    let path = path ^ ".org" in
-    let oc = open_out path in
-    let fmt = Format.formatter_of_out_channel oc in
+  let output_report () =
+    let fmt = Report.open_file name in
     Format.fprintf fmt
 "* Variables
 
@@ -131,21 +129,13 @@ module Self : Analyzer.S = struct
   - Number of distinct variable identifiers: %d
 " (number_of_constants ()) (number_of_variables ()) (number_of_distinct_variables ());
 
-  Format.fprintf fmt
-"
-** Constants
-";
-  show_constants ();
+  Format.fprintf fmt "\n** Constants\n";
+  show_constants fmt;
 
-  Format.fprintf fmt
-"
-** Real variables
-";
-  show_variables ();
+  Format.fprintf fmt "\n** Real variables\n";
+  show_variables fmt;
 
-  flush oc;
-  close_out oc;
-  false
+  Report.close_file fmt
 
 end
 

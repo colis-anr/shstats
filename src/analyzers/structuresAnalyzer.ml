@@ -278,17 +278,14 @@ module Self : Analyzer.S = struct
     in
     List.iter ((new Counter.iterator')#visit_complete_command ()) csts
 
-  let output_report path =
-    let oc = open_out (path ^ ".org") in
-    let fmt = Format.formatter_of_out_channel oc in
+  let output_report () =
+    let fmt = Report.open_file name in
     Format.fprintf fmt "* Structures\n";
     List.iter (fun (_, h) -> h#output_report fmt) base_handlers;
     for_handler#output_report fmt;
     case_handler#output_report fmt;
     while_handler#output_report fmt;
-    flush oc;
-    close_out oc;
-    false
+    Report.close_file fmt
 end
 
 let install = Analyzer.register (module Self)

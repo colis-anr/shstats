@@ -15,8 +15,8 @@ module type S = sig
   (** Once all scripts are processed, the following function is called
       once. It is supposed to write a report about the analysis. The
       format of this report is unspecified. *)
-  val output_report : string -> bool
-
+  val output_report : unit -> unit
+    
 end
 
 let analyzers : (module S) list ref = ref []
@@ -61,31 +61,19 @@ let process_script filename csts =
     A.process_script filename csts
   )
 
-let output_report report_path =
-  (
-    try Unix.mkdir report_path 0o755
-    with Unix.Unix_error _ ->
-      Format.eprintf "Could not create dir `%s`@." report_path;
-      exit 1
-  );
-  let oc = open_out (Filename.concat report_path "index.org") in
-  let fmt = Format.formatter_of_out_channel oc in
+let output_report () =
+  Report.create_section_directory "";
+  let fmt = Report.open_file "" in
+  Report.print_headers fmt "Statistics Report";
 
-  Format.fprintf fmt "#+TITLE: Statistics report\n";
-  Format.fprintf fmt "#+STARTUP: indent inlineimages hideblocks\n\n";
   Format.fprintf fmt "Processed %d files.\n" (List.length (Options.files ()));
   Format.fprintf fmt "Analysers:\n";
 
   foreach_active_analyzer (fun (module A : S) ->
-      let report_path = Filename.concat report_path A.name in
-      let report_path =
-        A.name ^
-          if A.output_report report_path
-          then ""
-          else ".org"
-      in
-      Format.fprintf fmt "- [[file:%s][%s]]\n" report_path A.name
+      A.output_report ();
+      Format.fprintf fmt "- %a\n"
+        Report.link_to_file
+        (Report.get_section_entry A.name, A.name)
     );
 
-  flush oc;
-  close_out oc
+  Report.close_file fmt

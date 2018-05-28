@@ -174,16 +174,12 @@ module Self : Analyzer.S = struct
     in
     List.iter ((new Counter.iterator')#visit_complete_command ()) csts
 
-  let output_report path =
-    let path = path ^ ".org" in
-    let oc = open_out path in
-    let fmt = Format.formatter_of_out_channel oc in
+  let output_report () =
+    let fmt = Report.open_file name in
     Format.fprintf fmt "#+TITLE: Miscellaenous Analyzer\n";
     ifs_counter#output_report fmt;
     cmd_string_counter#output_report fmt;
-    flush oc;
-    close_out oc;
-    false
+    Report.close_file fmt
 end
 
 let install = Analyzer.register (module Self)
