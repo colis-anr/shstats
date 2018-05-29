@@ -13,7 +13,23 @@ let create title =
 
 let add report = Format.fprintf report.formatter
 
+let make_name_valid name =
+  String.map
+    (fun char ->
+      let code = Char.code char in
+      if (code >= 48 && code <= 57)
+         || (code >= 65 && code <= 90)
+         || (code >= 97 && code <= 122)
+         || code = 45
+         || code = 95
+      then
+        char
+      else
+        '_')
+    name
+
 let create_subreport report ?(title="") name =
+  let name = make_name_valid name in
   if Hashtbl.mem report.subreports name then
     raise (Invalid_argument "add_subreport")
   else

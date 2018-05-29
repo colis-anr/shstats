@@ -37,8 +37,15 @@ let process total_number_of_files file_number (_, filename) =
 let () =
   Options.register_analyzers_options (Analyzer.options ());
   Options.parse_command_line ();
+
   let files = Options.files () in
   List.iteri (process (List.length files)) files;
+
   let report = Report.create "Statistics Report" in
   Analyzer.output_report report;
-  Report.commit report !Options.report_path
+
+  let path = !Options.report_path in
+  if path = "" then
+    Options.failwith "--report-path is mandatory"
+  else
+    Report.commit report path
