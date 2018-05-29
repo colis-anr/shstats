@@ -35,7 +35,8 @@ let process total_number_of_files file_number (_, filename) =
      Analyzer.process_script filename csts
 
 let () =
-  Options.parse_command_line (Analyzer.options ());
+  Options.register_analyzers_options (Analyzer.options ());
+  Options.parse_command_line ();
   let files = Options.files () in
   List.iteri (process (List.length files)) files;
   Analyzer.output_report ()

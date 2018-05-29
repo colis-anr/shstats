@@ -16,7 +16,7 @@ module type S = sig
       once. It is supposed to write a report about the analysis. The
       format of this report is unspecified. *)
   val output_report : unit -> unit
-    
+
 end
 
 let analyzers : (module S) list ref = ref []

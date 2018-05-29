@@ -26,16 +26,14 @@ type command_options = {
   }
 
 let literal s = Libmorbig.CST.Word (s, [WordLiteral s])
-                     
+
 let remember_synonym, canonical_command_name =
   let command_synonyms = Hashtbl.create 13 in
   (fun c c' -> Hashtbl.add command_synonyms (literal c') c), (*FIXME*)
   (fun c -> try Hashtbl.find command_synonyms c with Not_found -> c)
 
 let command_specification =
-  ref (fun _ ->
-      Format.eprintf "In order to run the `command` analyzer, the --specification option is required.@.";
-      exit 2)
+  ref (fun _ -> Options.failwith "--specification option is required by the command analyzer")
 
 let load_commands_specification commands_specification =
   let parse_command_option lines = Scanf.(

@@ -1,8 +1,7 @@
 
 let path suffix =
   match !Options.report_path with
-  | "" -> Format.eprintf "--report-path is mandatory@.";
-          exit 1
+  | "" -> Options.failwith "--report-path is mandatory"
   | path -> Filename.concat path suffix
 
 let create_section_directory section =
@@ -15,7 +14,7 @@ let is_section_directory section =
   | _ -> false
   | exception (Unix_error (ENOENT, _, _)) -> false
 
-let open_file ?(name="") section =
+let open_file ?(name="") ~section =
   let suffix =
     if is_section_directory section then
       (
@@ -25,6 +24,8 @@ let open_file ?(name="") section =
     else
       (section ^ ".org")
   in
+  ( try Unix.mkdir (Filename.dirname (path suffix)) 0o755
+    with Unix.Unix_error (Unix.EEXIST, _, _) -> () );
   let oc = open_out (path suffix) in
   Format.formatter_of_out_channel oc
 
