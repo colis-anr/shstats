@@ -62,18 +62,18 @@ let process_script filename csts =
   )
 
 let output_report () =
-  Report.create_section_directory "";
-  let fmt = Report.open_file "" in
-  Report.print_headers fmt "Statistics Report";
+  let open Report in
+  create_section_directory "";
+  let f = open_file "" in
+  print_headers f "Statistics Report";
 
-  Format.fprintf fmt "Processed %d files.\n" (List.length (Options.files ()));
-  Format.fprintf fmt "Analysers:\n";
+  fprintf f "Processed %d files.\n" (List.length (Options.files ()));
+  fprintf f "Analysers:\n";
 
   foreach_active_analyzer (fun (module A : S) ->
       A.output_report ();
-      Format.fprintf fmt "- %a\n"
-        Report.link_to_file
-        (Report.get_section_entry A.name, A.name)
+      fprintf f "- %s\n"
+        (link_to_file (get_section_entry A.name) A.name)
     );
 
-  Report.close_file fmt
+  close_file f

@@ -1,4 +1,6 @@
 
+type section = string
+
 let path suffix =
   match !Options.report_path with
   | "" -> Options.failwith "--report-path is mandatory"
@@ -14,7 +16,9 @@ let is_section_directory section =
   | _ -> false
   | exception (Unix_error (ENOENT, _, _)) -> false
 
-let open_file ?(name="") ~section =
+type file = out_channel * Format.formatter
+
+let open_file ?(name="") section =
   let suffix =
     if is_section_directory section then
       (
@@ -27,9 +31,14 @@ let open_file ?(name="") ~section =
   ( try Unix.mkdir (Filename.dirname (path suffix)) 0o755
     with Unix.Unix_error (Unix.EEXIST, _, _) -> () );
   let oc = open_out (path suffix) in
-  Format.formatter_of_out_channel oc
+  (oc, Format.formatter_of_out_channel oc)
 
-let close_file _fmt = () (*FIXME*)
+let close_file (oc, _fmt) =
+  flush oc;
+  close_out oc
+
+let fprintf (_oc, fmt) =
+  Format.fprintf fmt
 
 let get_section_entry section =
   if is_section_directory section then
@@ -37,12 +46,12 @@ let get_section_entry section =
   else
     section ^ ".org"
 
-let print_headers fmt title =
+let print_headers (_oc, fmt) title =
   Format.fprintf fmt "#+TITLE: %s\n" title;
   Format.fprintf fmt "#+STARTUP: indent inlineimages hideblocks\n";
   Format.fprintf fmt "@."
 
-let link_to_file fmt (link, text) =
-  Format.fprintf fmt "[[file:%s%s][%s]]"
+let link_to_file link text =
+  Format.sprintf "[[file:%s%s][%s]]"
     (if Filename.is_implicit link then "./" else "")
     link text

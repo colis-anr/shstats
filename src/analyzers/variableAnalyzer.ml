@@ -104,18 +104,19 @@ module Self : Analyzer.S = struct
       cardinal (union (names_of_table constants) (names_of_table variables))
     )
 
-  let show fmt =
+  let show file =
     Hashtbl.iter (fun (Name v) fs ->
-      Format.fprintf fmt "*** %s\n" v;
-      List.iter (fun f -> Format.fprintf fmt "    - [[file:%s]]\n" f) fs
+      Report.fprintf file "*** %s\n" v;
+      List.iter (fun f -> Report.fprintf file "    - [[file:%s]]\n" f) fs
     )
 
-  let show_constants fmt = show fmt constants
-  let show_variables fmt = show fmt variables
+  let show_constants f = show f constants
+  let show_variables f = show f variables
 
   let output_report () =
-    let fmt = Report.open_file name in
-    Format.fprintf fmt
+    let open Report in
+    let f = open_file name in
+    fprintf f
 "* Variables
 
   For each filename, if a variable is assigned twice, it is marked as a
@@ -129,13 +130,13 @@ module Self : Analyzer.S = struct
   - Number of distinct variable identifiers: %d
 " (number_of_constants ()) (number_of_variables ()) (number_of_distinct_variables ());
 
-  Format.fprintf fmt "\n** Constants\n";
-  show_constants fmt;
+  fprintf f "\n** Constants\n";
+  show_constants f;
 
-  Format.fprintf fmt "\n** Real variables\n";
-  show_variables fmt;
+  fprintf f "\n** Real variables\n";
+  show_variables f;
 
-  Report.close_file fmt
+  close_file f
 
 end
 

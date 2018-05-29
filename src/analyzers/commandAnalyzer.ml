@@ -232,7 +232,7 @@ module Self (*: Analyzer.S*) = struct
     let env = ref StringMap.empty in
     List.iter (count_command env filename) csts
 
-  let output_synthesis fmt =
+  let output_synthesis f =
     Hashtbl.fold (fun command (_, filenames) s ->
         let count = List.length filenames in
         let count_distinct = List.length (ExtPervasives.uniq filenames) in
@@ -242,7 +242,7 @@ module Self (*: Analyzer.S*) = struct
     |> List.iter (fun (Word (command, _), (count, count_distinct)) ->
            let s = string_of_command command in
            let s = if s = "[" then s else "[[" ^ s ^ "]]" in
-           Format.fprintf fmt "%05d %05d %s\n" count count_distinct s)
+           Report.fprintf f "%05d %05d %s\n" count count_distinct s)
 
   let number_of_options_occurrences categories =
     let count = Hashtbl.create 13 in
@@ -253,35 +253,51 @@ module Self (*: Analyzer.S*) = struct
     ExtPervasives.hashtbl_to_list count
     |> List.sort (fun (_, o1) (_, o2) -> - compare o1 o2)
 
+  let filename_of_command command =
+    let filename =
+      match command with
+      | "." -> "dot"
+      | "[" -> "test"
+      | command when String.contains command '/' ->
+         (String.map (function '/' -> '_' | c -> c) command)
+      | command -> command
+    in
+    if String.length filename > 20 then
+      String.sub filename 0 20
+    else
+      filename
+      
   let output_details () =
     let show_options command (options, filename) =
       "[[file:" ^ filename ^ "]]:\n" ^
 	"       " ^ command ^ " "
         ^ String.concat " " (List.map unWord options)
     in
-    let show_category fmt command (scheme, instances) =
-      Format.fprintf fmt "**** [%05d] %s\n" (List.length instances) (string_of_arguments_scheme scheme);
-      List.iter (fun a -> Format.fprintf fmt "     - %s\n" (show_options command a)) instances
+    let show_category f command (scheme, instances) =
+      Report.fprintf f "**** [%05d] %s\n" (List.length instances) (string_of_arguments_scheme scheme);
+      List.iter (fun a -> Report.fprintf f "     - %s\n" (show_options command a)) instances
     in
     let l = ref [] in
     Hashtbl.iter (fun k (a, f) -> l := (k, a, List.length f) :: !l) commands;
     l := List.sort (fun (_, _, x) (_, _, y) -> - compare x y) !l;
     List.iter (fun (Word (command, _), categories, nb_occurrences) ->
-        let fmt = Report.open_file ~name:(Filename.concat "details" command) ~section:name in
-        Format.fprintf fmt "*** [%05d] %s \n" nb_occurrences (string_of_command command);
-        Format.fprintf fmt "**** Number of occurrences per options\n";
+        let open Report in
+        let f = open_file ~name:(Filename.concat "details" (filename_of_command command)) name in
+        fprintf f "*** [%05d] %s \n" nb_occurrences (string_of_command command);
+        fprintf f "**** Number of occurrences per options\n";
         List.iter
-	  (fun (o, i) -> Format.fprintf fmt "      - [%05d] %s\n" i o)
+	  (fun (o, i) -> fprintf f "      - [%05d] %s\n" i o)
 	  (number_of_options_occurrences categories);
         List.(
 	  ExtPervasives.hashtbl_to_list categories
 	  |> sort (fun (_, i1) (_, i2) -> - compare (length i1) (length i2))
-	  |> iter (show_category fmt command)
-        )
+	  |> iter (show_category f command)
+        );
+        close_file f
       )  !l
 
   module StringSet = Set.Make (String)
-  let output_covering fmt =
+  let output_covering f =
     exotic_command_levels := List.rev !exotic_command_levels;
     let use_exotic_commands = Array.make (List.length !exotic_command_levels) StringSet.empty in
     Hashtbl.iter (fun command (_, filenames) ->
@@ -294,28 +310,29 @@ module Self (*: Analyzer.S*) = struct
           ) !exotic_command_levels
       ) commands;
     let nb_files = List.length (Options.files ()) in
-    Format.fprintf fmt "  |-------|-------|--------|\n";
-    Format.fprintf fmt "  | Level |       |        |\n";
-    Format.fprintf fmt "  |-------|-------|--------|\n";
+    Report.fprintf f "  |-------|-------|--------|\n";
+    Report.fprintf f "  | Level |       |        |\n";
+    Report.fprintf f "  |-------|-------|--------|\n";
     List.iteri (fun i level ->
         let nb = StringSet.cardinal use_exotic_commands.(i) in
         let p = float_of_int nb *. 100. /. float_of_int nb_files in
-        Format.fprintf fmt "  | %05d | %05d | %5.2f%% |\n" level nb p
+        Report.fprintf f "  | %05d | %05d | %5.2f%% |\n" level nb p
       ) !exotic_command_levels;
-    Format.fprintf fmt "  |-------|-------|--------|\n"
+    Report.fprintf f "  |-------|-------|--------|\n"
 
   let output_report () =
-    Report.create_section_directory name;
-    let fmt = Report.open_file name in
-    Report.print_headers fmt "Command Analyzer Report";
+    let open Report in
+    create_section_directory name;
+    let f = open_file name in
+    print_headers f "Command Analyzer Report";
 
-    Format.fprintf fmt "- The first column is the number of times the command appears in the corpus.\n";
-    Format.fprintf fmt "- The second column is the number of distinct files where the command is used.\n";
-    output_synthesis fmt;
+    fprintf f "- The first column is the number of times the command appears in the corpus.\n";
+    fprintf f "- The second column is the number of distinct files where the command is used.\n";
+    output_synthesis f;
 
     output_details ();
 
-    Format.fprintf fmt
+    fprintf f
       "* Covering
 
 For each levels provided to the command with the '-i' option, we compute
@@ -323,8 +340,8 @@ the number of scripts the use at least one command which is exotic given
 the threshold.
 
 ";
-    output_covering fmt;
-    Report.close_file fmt
+    output_covering f;
+    close_file f
 end
 
 let install = Analyzer.register (module Self)

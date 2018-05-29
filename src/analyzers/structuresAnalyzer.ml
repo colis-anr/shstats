@@ -27,12 +27,12 @@ module Self : Analyzer.S = struct
           );
         incr counter
 
-      method output_report fmt =
-        Format.fprintf fmt "** %s\n- %d occurrences in %d files\n" name !counter !files_counter;
+      method output_report f =
+        Report.fprintf f "** %s\n- %d occurrences in %d files\n" name !counter !files_counter;
         if !files_counter > 0 then
           (
-            Format.fprintf fmt "*** Files\n";
-            List.iter (Format.fprintf fmt "- [[file:%s]]\n") !filenames
+            Report.fprintf f "*** Files\n";
+            List.iter (Report.fprintf f "- [[file:%s]]\n") !filenames
           )
     end
 
@@ -85,28 +85,28 @@ module Self : Analyzer.S = struct
         | ForClause_For_Name_LineBreak_In_WordList_SequentialSep_DoGroup (_, _, wordlist', _, _) ->
            self#count_dollars_in_wordlist filename "" (*FIXME: (pp_to_string pp_for_clause for_clause)*) wordlist'.value
 
-      method output_report fmt =
-        Format.fprintf fmt
+      method output_report f =
+        Report.fprintf f
           "** %s\n%d occurrences in %d files\n"
           name !counter !files_counter;
         
-        Format.fprintf fmt
+        Report.fprintf f
           "*** %d (%d%%) contain a variable\n"
           (variables_counter#n_occurrences())
           (100 * variables_counter#n_occurrences() / !counter);
-        variables_counter#output_occurrences fmt;
+        variables_counter#output_occurrences f;
         
-        Format.fprintf fmt
+        Report.fprintf f
           "*** %d (%d%%) contain a subshell\n"
           (subshells_counter#n_occurrences())
           (100 * subshells_counter#n_occurrences() / !counter);
-        subshells_counter#output_occurrences fmt;
+        subshells_counter#output_occurrences f;
         
-        Format.fprintf fmt
+        Report.fprintf f
           "*** %d (%d%%) contain a glob\n"
           (globs_counter#n_occurrences())
           (100 * globs_counter#n_occurrences() / !counter);
-        globs_counter#output_occurrences fmt
+        globs_counter#output_occurrences f
     end
 
     class caseHandler (name: string) = object (self)
@@ -123,9 +123,9 @@ module Self : Analyzer.S = struct
            if unWord w.value = "$1" || unWord w.value = "\"$1\"" then
              incr dollar1
 
-      method output_report fmt =
-        super#output_report fmt;
-        Format.fprintf fmt "*** Details\n- %d (%d%%) of them are matching on $1\n" !dollar1 (100 * !dollar1 / !counter)
+      method output_report f =
+        super#output_report f;
+        Report.fprintf f "*** Details\n- %d (%d%%) of them are matching on $1\n" !dollar1 (100 * !dollar1 / !counter)
     end
 
     class whileHandler (name: string) = object (self)
@@ -184,9 +184,9 @@ module Self : Analyzer.S = struct
         | WhileClause_While_CompoundList_DoGroup (cl, _) ->
            self#handle_while_compound_list cl.value
 
-      method output_report fmt =
-        super#output_report fmt;
-        Format.fprintf fmt "*** Details\n- %d (%d%%) of them are using 'read'\n" !reads (100 * !reads / !counter)
+      method output_report f =
+        super#output_report f;
+        Report.fprintf f "*** Details\n- %d (%d%%) of them are using 'read'\n" !reads (100 * !reads / !counter)
     end
   end
 
@@ -279,13 +279,14 @@ module Self : Analyzer.S = struct
     List.iter ((new Counter.iterator')#visit_complete_command ()) csts
 
   let output_report () =
-    let fmt = Report.open_file name in
-    Format.fprintf fmt "* Structures\n";
-    List.iter (fun (_, h) -> h#output_report fmt) base_handlers;
-    for_handler#output_report fmt;
-    case_handler#output_report fmt;
-    while_handler#output_report fmt;
-    Report.close_file fmt
+    let open Report in
+    let f = open_file name in
+    fprintf f "* Structures\n";
+    List.iter (fun (_, h) -> h#output_report f) base_handlers;
+    for_handler#output_report f;
+    case_handler#output_report f;
+    while_handler#output_report f;
+    close_file f
 end
 
 let install = Analyzer.register (module Self)

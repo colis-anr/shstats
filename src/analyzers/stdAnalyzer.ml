@@ -46,8 +46,8 @@ let indent_string s n =
 class occCounter (name: string) = object (self)
   inherit [string, string] counter name as super
 
-  method output_occurrences fmt =
-    super#iter (fun f r -> Format.fprintf fmt "- [[file:%s]]\n  %s\n" f (indent_string r 2))
+  method output_occurrences file =
+    super#iter (fun f r -> Report.fprintf file "- [[file:%s]]\n  %s\n" f (indent_string r 2))
 
   method n_files = super#n_keys
   method n_occurrences = super#n_elements

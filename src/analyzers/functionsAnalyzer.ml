@@ -156,24 +156,25 @@ module Self : Analyzer.S = struct
       Format.fprintf ppf_cycles "@]#+END_SRC@.@]"
 
   let output_report () =
-    let fmt = Report.open_file name in
+    let open Report in
+    let f = open_file name in
 
-    Format.fprintf fmt "* Functions\n- %d functions declarations in %d files\n** Occurrences@." (functions_counter#n_occurrences()) (functions_counter#n_files());
-    functions_counter#output_occurrences fmt;
+    fprintf f "* Functions\n- %d functions declarations in %d files\n** Occurrences@." (functions_counter#n_occurrences()) (functions_counter#n_files());
+    functions_counter#output_occurrences f;
 
     let duplicates = Buffer.contents buf_duplicates in
     if duplicates = "" then
-      Format.fprintf fmt "** No duplicates\n"
+      fprintf f "** No duplicates\n"
     else
-      Format.fprintf fmt "** Duplicates\n%s" duplicates;
+      fprintf f "** Duplicates\n%s" duplicates;
 
     let cycles = Buffer.contents buf_cycles in
     if cycles = "" then
-      Format.fprintf fmt "** No cycles\n"
+      fprintf f "** No cycles\n"
     else
-      Format.fprintf fmt "** Cycles\n%s" cycles;
+      fprintf f "** Cycles\n%s" cycles;
 
-    Report.close_file fmt
+    close_file f
 end
 
 let install = Analyzer.register (module Self)
