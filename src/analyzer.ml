@@ -67,6 +67,5 @@ let output_report report =
 
   foreach_active_analyzer (fun (module A : S) ->
       A.output_report (Report.create_subreport report A.name);
-      (* Report.add report "- %s\n"
-       *   (link_to_file (get_section_entry A.name) A.name) *)
+      Report.add report "- %s\n" (Report.link_to_subreport report A.name)
     )

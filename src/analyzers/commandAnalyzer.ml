@@ -240,9 +240,11 @@ module Self (*: Analyzer.S*) = struct
       ) commands []
     |> List.sort (fun (_, (c1, _)) (_, (c2, _)) -> - compare c1 c2)
     |> List.iter (fun (Word (command, _), (count, count_distinct)) ->
-           let s = string_of_command command in
-           let s = if s = "[" then s else "[[" ^ s ^ "]]" in
-           Report.add report "%05d %05d %s\n" count count_distinct s)
+           let command = string_of_command command in
+           Report.add report
+             "%05d %05d %s\n"
+             count count_distinct
+             (Report.link_to_subreport report command))
 
   let number_of_options_occurrences categories =
     let count = Hashtbl.create 13 in
@@ -319,6 +321,8 @@ module Self (*: Analyzer.S*) = struct
     Report.add report "  |-------|-------|--------|\n"
 
   let output_report report =
+    output_details report;
+
     Report.add report "- The first column is the number of times the command appears in the corpus.\n";
     Report.add report "- The second column is the number of distinct files where the command is used.\n";
     output_synthesis report;
@@ -331,9 +335,8 @@ the number of scripts the use at least one command which is exotic given
 the threshold.
 
 ";
-    output_covering report;
+    output_covering report
 
-    output_details report
 end
 
 let install = Analyzer.register (module Self)
