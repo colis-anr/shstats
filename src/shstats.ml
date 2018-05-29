@@ -39,4 +39,6 @@ let () =
   Options.parse_command_line ();
   let files = Options.files () in
   List.iteri (process (List.length files)) files;
-  Analyzer.output_report ()
+  let report = Report.create "Statistics Report" in
+  Analyzer.output_report report;
+  Report.commit report !Options.report_path

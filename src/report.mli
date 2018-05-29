@@ -1,16 +1,9 @@
 
-type section = string
-type file
+type t
 
-val create_section_directory : section -> unit
+val create : string -> t
+val create_subreport : t -> ?title:string -> string -> t
 
-val open_file : ?name:string -> section -> file
-val close_file : file -> unit
+val add : t -> ('a, Format.formatter, unit) format -> 'a
 
-val fprintf : file -> ('a, Format.formatter, unit) format -> 'a
-
-val print_headers : file -> string -> unit
-
-val link_to_file : string -> string -> string
-
-val get_section_entry : section -> string
+val commit : t -> string -> unit

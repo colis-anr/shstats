@@ -9,7 +9,7 @@ class ['a, 'b] counter (name: string) = object (self)
 
   method n_elements () =
     Hashtbl.fold (fun _ elmts n -> n + Queue.length elmts) values 0
-    
+
   method add key elmt =
     try
       let elmts = Hashtbl.find values key in
@@ -19,7 +19,7 @@ class ['a, 'b] counter (name: string) = object (self)
       let elmts = Queue.create () in
       Queue.push elmt elmts;
       Hashtbl.add values key elmts
-    
+
   method iter f =
     Hashtbl.iter
       (fun key -> Queue.iter (f key))
@@ -38,16 +38,16 @@ let split_on_char sep s =
       )
   done;
   String.sub s 0 !j :: !r
-  
+
 let indent_string s n =
   let sep = "\n" ^ (String.make n ' ') in
   String.concat sep (split_on_char '\n' s)
-                                      
+
 class occCounter (name: string) = object (self)
   inherit [string, string] counter name as super
 
-  method output_occurrences file =
-    super#iter (fun f r -> Report.fprintf file "- [[file:%s]]\n  %s\n" f (indent_string r 2))
+  method output_occurrences report =
+    super#iter (fun f r -> Report.add report "- [[file:%s]]\n  %s\n" f (indent_string r 2))
 
   method n_files = super#n_keys
   method n_occurrences = super#n_elements
@@ -55,4 +55,3 @@ end
 
 let pp_shell_repr pp s =
   "#+BEGIN_SRC sh\n" ^ (indent_string (ExtPervasives.pp_to_string pp s) 2) ^ "\n#+END_SRC\n"
-  

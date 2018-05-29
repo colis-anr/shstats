@@ -15,7 +15,7 @@ module type S = sig
   (** Once all scripts are processed, the following function is called
       once. It is supposed to write a report about the analysis. The
       format of this report is unspecified. *)
-  val output_report : unit -> unit
+  val output_report : Report.t -> unit
 
 end
 
@@ -61,19 +61,12 @@ let process_script filename csts =
     A.process_script filename csts
   )
 
-let output_report () =
-  let open Report in
-  create_section_directory "";
-  let f = open_file "" in
-  print_headers f "Statistics Report";
-
-  fprintf f "Processed %d files.\n" (List.length (Options.files ()));
-  fprintf f "Analysers:\n";
+let output_report report =
+  Report.add report "Processed %d files.\n" (List.length (Options.files ()));
+  Report.add report "Analysers:\n";
 
   foreach_active_analyzer (fun (module A : S) ->
-      A.output_report ();
-      fprintf f "- %s\n"
-        (link_to_file (get_section_entry A.name) A.name)
-    );
-
-  close_file f
+      A.output_report (Report.create_subreport report A.name);
+      (* Report.add report "- %s\n"
+       *   (link_to_file (get_section_entry A.name) A.name) *)
+    )

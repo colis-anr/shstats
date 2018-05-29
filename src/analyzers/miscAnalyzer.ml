@@ -15,22 +15,22 @@ module Self : Analyzer.S = struct
 
     method get_value () =
       !value
-              
+
     method handle filename string =
       if !files = [] || fst (List.hd !files) <> filename then
           files := (filename, string) :: !files;
       incr value
 
-    method output_occurrences ?(with_name=true) f =
+    method output_occurrences ?(with_name=true) report =
       if !files <> [] then
         (
-          Report.fprintf f "*** %s\n" (if with_name then name else "Occurrences");
-          List.iter (fun (filename, string) -> Report.fprintf f "- [[file:%s]]\n  %s\n" filename string) !files
+          Report.add report "*** %s\n" (if with_name then name else "Occurrences");
+          List.iter (fun (filename, string) -> Report.add report "- [[file:%s]]\n  %s\n" filename string) !files
         )
-      
-    method output_report f =
-      Report.fprintf f "** %s\n- %d occurrences in %d files\n" name !value (List.length !files);
-      self#output_occurrences ~with_name:false f
+
+    method output_report report =
+      Report.add report "** %s\n- %d occurrences in %d files\n" name !value (List.length !files);
+      self#output_occurrences ~with_name:false report
   end
 
   class cmd_string_counter = object (self)
@@ -75,8 +75,8 @@ module Self : Analyzer.S = struct
       )
         filename representation
 
-    method output_report f =
-      Report.fprintf f "** Dynamic commands
+    method output_report report =
+      Report.add report "** Dynamic commands
 
 |           | With quotes | Without quotes | Total |
 |-----------|-------------|----------------|-------|
@@ -90,11 +90,11 @@ module Self : Analyzer.S = struct
                     (param_at_quoted_counter#get_value ())
                     (param_at_counter#get_value ())
                     ((param_at_counter#get_value ()) + (param_at_quoted_counter#get_value ()))
-      
+
                     (param_star_quoted_counter#get_value ())
                     (param_star_counter#get_value ())
                     ((param_star_counter#get_value ()) + (param_star_quoted_counter#get_value ()))
-      
+
                     (variables_quoted_counter#get_value ())
                     (variables_counter#get_value ())
                     ((variables_counter#get_value ()) + (variables_quoted_counter#get_value ()))
@@ -104,20 +104,20 @@ module Self : Analyzer.S = struct
                     ((subprocess_counter#get_value ()) + (subprocess_quoted_counter#get_value ()))
 
                     0 0 0;
-      
-      param_at_counter#output_occurrences f;
-      param_at_quoted_counter#output_occurrences f;
-      param_star_counter#output_occurrences f;
-      param_star_quoted_counter#output_occurrences f;
-      variables_counter#output_occurrences f;
-      variables_quoted_counter#output_occurrences f;
-      subprocess_counter#output_occurrences f;
-      subprocess_quoted_counter#output_occurrences f
-  end                                  
-                               
-  let ifs_counter = new counter "IFS" 
+
+      param_at_counter#output_occurrences report;
+      param_at_quoted_counter#output_occurrences report;
+      param_star_counter#output_occurrences report;
+      param_star_quoted_counter#output_occurrences report;
+      variables_counter#output_occurrences report;
+      variables_quoted_counter#output_occurrences report;
+      subprocess_counter#output_occurrences report;
+      subprocess_quoted_counter#output_occurrences report
+  end
+
+  let ifs_counter = new counter "IFS"
   let cmd_string_counter = new cmd_string_counter
-                  
+
   let process_script filename csts =
     let module Counter =
       struct
@@ -149,22 +149,22 @@ module Self : Analyzer.S = struct
                self#visit_cmd_word' venv cw;
                self#visit_cmd_suffix' venv cs;
                cmd_string_counter#handle filename (unWord w'.value) ssc
-               
+
             | SimpleCommand_CmdPrefix_CmdWord (cp, cw) ->
                let CmdWord_Word w' = cw.value in
                self#visit_cmd_prefix' venv cp;
                self#visit_cmd_word' venv cw;
                cmd_string_counter#handle filename (unWord w'.value) ssc
-               
+
             | SimpleCommand_CmdPrefix cp ->
                self#visit_cmd_prefix' venv cp
-              
+
             | SimpleCommand_CmdName_CmdSuffix (cn, cs) ->
                let CmdName_Word w' = cn.value in
                self#visit_cmd_name' venv cn;
                self#visit_cmd_suffix' venv cs;
                cmd_string_counter#handle filename (unWord w'.value) ssc
-               
+
             | SimpleCommand_CmdName cn ->
                let CmdName_Word w' = cn.value in
                self#visit_cmd_name' venv cn;
@@ -174,13 +174,11 @@ module Self : Analyzer.S = struct
     in
     List.iter ((new Counter.iterator')#visit_complete_command ()) csts
 
-  let output_report () =
+  let output_report report =
     let open Report in
-    let f = open_file name in
-    fprintf f "#+TITLE: Miscellaenous Analyzer\n";
-    ifs_counter#output_report f;
-    cmd_string_counter#output_report f;
-    close_file f
+    Report.add report "#+TITLE: Miscellaenous Analyzer\n";
+    ifs_counter#output_report report;
+    cmd_string_counter#output_report report
 end
 
 let install = Analyzer.register (module Self)
