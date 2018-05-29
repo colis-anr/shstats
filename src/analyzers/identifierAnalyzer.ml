@@ -126,8 +126,14 @@ module Self : Analyzer.S = struct
  "
 (!corpus_number_constants)
 (!corpus_number_variables)
-(List.length !corpus_scripts_with_variables)
-    ;
+(List.length !corpus_scripts_with_variables);
+
+    Format.fprintf fmt "** Scripts using variables\n";
+
+    List.iter
+      (function scriptname ->
+                Format.fprintf fmt "    - [[file:%s]]\n" scriptname)
+      !corpus_scripts_with_variables;
 
     flush oc;
     close_out oc;
