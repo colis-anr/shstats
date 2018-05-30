@@ -12,10 +12,3 @@ eval `opam config env`
 fold_start make 'Run `make`...'
 make
 fold_end make
-
-## Make install
-if [ -z "$RUN_TESTS" ]; then
-    fold_start install 'Run `make install`...'
-    make install
-    fold_end install
-fi
