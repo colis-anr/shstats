@@ -127,7 +127,7 @@ module Self : Analyzer.S = struct
                    Hashtbl.add functions_tbl fn fb
                  with
                    SGraph.VerticeExists ->
-                   Format.fprintf ppf_duplicates "- [[file:%s][%s]]\n  - '%s' is defined more than once@." filename filename fn;
+                   Format.fprintf ppf_duplicates "- %s\n  - '%s' is defined more than once@." filename fn;
                    if fb = Hashtbl.find functions_tbl fn then
                      Format.fprintf ppf_duplicates "    - and with the same body@."
                );
@@ -150,7 +150,7 @@ module Self : Analyzer.S = struct
       SGraph.check_acyclic (i#get_dep_graph ())
     with
       SGraph.Cycle ->
-      Format.fprintf ppf_cycles "- [[file:%s][%s]]@.@[<h 2>  " filename filename;
+      Format.fprintf ppf_cycles "- %s@.@[<h 2>  " filename;
       Format.fprintf ppf_cycles "#+BEGIN_SRC dot :file %s.png :exports results@.@[<h 2>  " filename;
       SGraph.print (i#get_dep_graph()) ppf_cycles (fun x -> x);
       Format.fprintf ppf_cycles "@]#+END_SRC@.@]"

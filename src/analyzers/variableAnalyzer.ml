@@ -107,7 +107,8 @@ module Self : Analyzer.S = struct
   let show report =
     Hashtbl.iter (fun (Name v) fs ->
       Report.add report "*** %s\n" v;
-      List.iter (fun f -> Report.add report "    - [[file:%s]]\n" f) fs
+      List.iter (fun f -> Report.add report "    - %s\n"
+                            (Report.link_to_source report f)) fs
     )
 
   let show_constants report = show report constants

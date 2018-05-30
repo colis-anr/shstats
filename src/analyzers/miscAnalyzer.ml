@@ -25,7 +25,7 @@ module Self : Analyzer.S = struct
       if !files <> [] then
         (
           Report.add report "*** %s\n" (if with_name then name else "Occurrences");
-          List.iter (fun (filename, string) -> Report.add report "- [[file:%s]]\n  %s\n" filename string) !files
+          List.iter (fun (filename, string) -> Report.add report "- %s\n  %s\n" (Report.link_to_source report filename) string) !files
         )
 
     method output_report report =

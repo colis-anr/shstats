@@ -32,7 +32,9 @@ module Self : Analyzer.S = struct
         if !files_counter > 0 then
           (
             Report.add report "*** Files\n";
-            List.iter (Report.add report "- [[file:%s]]\n") !filenames
+            List.iter (fun f ->
+                Report.link_to_source report f
+                |> Report.add report "- %s\n") !filenames
           )
     end
 

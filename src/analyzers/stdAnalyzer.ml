@@ -47,7 +47,7 @@ class occCounter (name: string) = object (self)
   inherit [string, string] counter name as super
 
   method output_occurrences report =
-    super#iter (fun f r -> Report.add report "- [[file:%s]]\n  %s\n" f (indent_string r 2))
+    super#iter (fun f r -> Report.add report "- %s\n  %s\n" (Report.link_to_source report f) (indent_string r 2))
 
   method n_files = super#n_keys
   method n_occurrences = super#n_elements

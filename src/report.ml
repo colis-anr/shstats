@@ -55,6 +55,9 @@ let create_subreport report ?(title="") name =
 (* shadow create to hide the optionnal path argument *)
 let create title = create title
 
+let has_subreports report =
+  Hashtbl.length report.subreports <> 0
+
 let add report = Format.fprintf report.formatter
 
 
@@ -112,7 +115,12 @@ let link_to_subreport report ?(text="") subreport_name =
 let link_to_source report ?(text="") source =
   let path =
     Filename.concat
-      ("./" ^ String.concat "/" (List.map (fun _ -> "..") report.path))
+      ("./" ^ String.concat "/" (
+                  let path = List.map (fun _ -> "..") report.path in
+                  if has_subreports report
+                  then path
+                  else List.tl path
+      ))
       (Filename.concat "_sources" (safe_source_path source))
   in
   link_to_file path (if text = "" then source else text)

@@ -129,7 +129,7 @@ module Self : Analyzer.S = struct
 
     List.iter
       (function scriptname ->
-         Report.add report "    - [[file:%s]]\n" scriptname)
+         Report.add report "    - %s\n" (Report.link_to_source report scriptname))
       !corpus_scripts_with_variables
 
 end (* module Self = struct ... *)
