@@ -8,6 +8,7 @@ open StructuresAnalyzer
 open MiscAnalyzer
 open FunctionsAnalyzer
 open IdentifierAnalyzer
+open TestAnalyzer
 
 let read filename =
   if Filename.check_suffix filename ".morbig" then
