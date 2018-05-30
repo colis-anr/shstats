@@ -119,8 +119,8 @@ module Self : Analyzer.S = struct
 
   - Number of pairs (script,id) where id is constant in script: %d
   - Number of pairs (script,id) where id is variable in script: %d
-  - Number of scripts containing variables: %d
- "
+  - Number of scripts containing variables: %d\n\n"
+
 (!corpus_number_constants)
 (!corpus_number_variables)
 (List.length !corpus_scripts_with_variables);
