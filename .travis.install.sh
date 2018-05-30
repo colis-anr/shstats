@@ -31,3 +31,13 @@ fold_end prep_opam
 fold_start opam_deps 'Install OPAM dependencies...'
 opam install -y menhir yojson ppx_deriving_yojson visitors # For Morbig
 fold_end opam_deps
+
+## Morbig
+fold_start morbig 'Install Morbig...' #FIXME: as soon as there is an OPAM release, use it!
+git clone https://github.com/colis-anr/morbig
+cd morbig
+make
+make install
+cd ..
+rm -rf morbig
+fold_end morbig
