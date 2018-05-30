@@ -8,7 +8,8 @@ open StructuresAnalyzer
 open MiscAnalyzer
 open FunctionsAnalyzer
 open IdentifierAnalyzer
-   
+open TestAnalyzer
+
 let process = function
   | None -> ()
   | Some (filename, csts) ->
