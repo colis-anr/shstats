@@ -74,13 +74,13 @@ let add report = Format.fprintf report.formatter
 
 let safe_source_path source =
   let target =
-    String.split_on_char '/' source
+    ExtPervasives.split_on_char '/' source
     |> List.filter (function "." | ".." -> false | _ -> true)
     |> String.concat "/"
   in
-  Filename.remove_extension target
+  ExtPervasives.remove_extension target
   ^ "." ^ (hash source)
-  ^ Filename.extension target
+  ^ ExtPervasives.extension target
 
 
 

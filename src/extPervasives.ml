@@ -178,3 +178,24 @@ let pp_to_string pp arg =
   pp ppf arg;
   Format.pp_print_flush ppf ();
   Buffer.contents b
+
+let rec split_on_char c s =
+  try
+    let i = String.index s c in
+    (String.sub s 0 i) :: (split_on_char c (String.sub s (i + 1) (String.length s - i - 1)))
+  with
+    Not_found -> [s]
+
+let remove_extension f =
+  try
+    let i = String.rindex f '.' in
+    String.sub f 0 i
+  with
+    Not_found -> f
+
+let extension f =
+  try
+    let i = String.rindex f '.' in
+    String.sub f i (String.length f - i)
+  with
+    Not_found -> ""
