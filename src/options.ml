@@ -34,9 +34,14 @@ let failwith ?(return_code=2) message =
 let parse_command_line () =
   Arg.parse
     (options ())
-    (fun argument -> failwith (Format.sprintf "unexpected argument: %s" argument))
-    usage_message
-
+    (fun argument -> failwith (Format.sprintf "Unexpected argument: %s." argument))
+    usage_message;
+  (* checks *)
+  if !report_path = "" then
+    failwith "--report-path is mandatory";
+  if Shell.test_e !report_path then
+    failwith (Format.sprintf "The report path (%s) must not exist." !report_path)
+  
 let files =
   let all_files = ref None in
   fun () ->

@@ -271,8 +271,8 @@ module Self (*: Analyzer.S*) = struct
 
   let output_details report =
     let show_options command (options, filename) =
-      "[[file:" ^ filename ^ "]]:\n" ^
-	"       " ^ command ^ " "
+      (Report.link_to_source report filename)
+      ^ ":\n       " ^ command ^ " "
         ^ String.concat " " (List.map unWord options)
     in
     let show_category report command (scheme, instances) =

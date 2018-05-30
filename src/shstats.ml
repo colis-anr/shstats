@@ -8,45 +8,46 @@ open StructuresAnalyzer
 open MiscAnalyzer
 open FunctionsAnalyzer
 open IdentifierAnalyzer
-
-let read filename =
-  if Filename.check_suffix filename ".morbig" then
-    (
-      let cin = open_in filename in
-      let (filename, csts) : string * Libmorbig.CST.complete_command list = input_value cin in
-      close_in cin;
-      Some (filename, csts)
-    )
-  else
-    (
-      try
-        Some (filename, Libmorbig.API.parse_file filename)
-      with
-        _ ->
-        Format.eprintf "%s: parse error@." filename;
-        None
-    )
-
-let process total_number_of_files file_number (_, filename) =
-  match read filename with
+   
+let process = function
   | None -> ()
   | Some (filename, csts) ->
-     Format.eprintf "[%d/%d] %s\r@?"
-       (1+file_number) total_number_of_files filename;
      Analyzer.process_script filename csts
 
 let () =
   Options.register_analyzers_options (Analyzer.options ());
   Options.parse_command_line ();
 
+  Format.eprintf "Reading file list...@.";
   let files = Options.files () in
-  List.iteri (process (List.length files)) files;
 
+  Format.eprintf "Analyzing files...@.";
+  files
+  |> List.map
+       (fun (_, filename) ->
+         if Filename.check_suffix filename ".morbig" then
+           (
+             let cin = open_in filename in
+             let (_, csts) : string * Libmorbig.CST.complete_command list = input_value cin in
+             close_in cin;
+             Some (Filename.chop_suffix filename ".morbig", csts)
+           )
+         else
+           (
+             try
+               Some (filename, Libmorbig.API.parse_file filename)
+             with
+               _ ->
+               Format.eprintf "%s: parse error@." filename;
+               None
+       ))
+  |> List.iter process;
+
+  Format.eprintf "Creating report...@.";
   let report = Report.create "Statistics Report" in
   Analyzer.output_report report;
 
-  let path = !Options.report_path in
-  if path = "" then
-    Options.failwith "--report-path is mandatory"
-  else
-    Report.commit report path
+  Format.eprintf "Writing report on disk...@.";
+  Report.commit report !Options.report_path;
+
+  Format.eprintf "Done! You can now open emacs on %s/index.org@." !Options.report_path
