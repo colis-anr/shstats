@@ -183,13 +183,12 @@ module Self : Analyzer.S = struct
 
     let module Counter = struct
 
-    let register_test filename invocation is_bracket arguments =
-      (* is_bracket is true when the command was "[", false when "test" *)
+    let register_test filename invocation arguments =
       let arguments_unquoted = List.map UnQuote.on_string arguments
+      and is_bracket = (invocation = "[" )
       in
       try
-        let _ = parse is_bracket
-                      (List.map to_token arguments_unquoted)
+        let _ = parse is_bracket (List.map to_token arguments_unquoted)
         in ()
       with
         Parse_error ->
@@ -200,13 +199,12 @@ module Self : Analyzer.S = struct
 	inherit [_] Libmorbig.CST.iter as super
 
 	method! visit_simple_command venv csts =
-      match extract_command csts with
-      | Some "test" ->
-         register_test filename "test" false (extract_arguments csts)
-      | Some "[" ->
-         register_test filename "[" true (extract_arguments csts)
-      | _ ->
-         super#visit_simple_command venv csts
+      let invocation = extract_command csts in
+      match invocation with
+      | Some s when (s = "test" || s = "[" )
+        -> register_test filename s (extract_arguments csts)
+      | _
+        -> super#visit_simple_command venv csts
                 
     end (* class iterator' = object ... *)
     end (* module Counter = struct ... *)
