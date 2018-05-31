@@ -164,7 +164,8 @@ let parse is_bracket tokens =
     | BinOp binop -> pop ();
                      begin
                      match lookup () with
-                     | String rightarg -> pop (); Some (binop,rightarg)
+                     | String rightarg | UnOp rightarg | BinOp rightarg
+                       -> pop (); Some (binop,rightarg)
                      | _ -> raise Parse_error
                      end
     | _ -> raise Parse_error
@@ -176,20 +177,24 @@ module Self : Analyzer.S = struct
 
   let name = "test"
 
+  let parsing_errors = ref []
+
   let process_script filename csts =
 
     let module Counter = struct
 
-    let register_test filename is_bracket arguments =
+    let register_test filename invocation is_bracket arguments =
       (* is_bracket is true when the command was "[", false when "test" *)
+      let arguments_unquoted = List.map UnQuote.on_string arguments
+      in
       try
-        parse is_bracket (List.map to_token arguments); ()
+        let _ = parse is_bracket
+                      (List.map to_token arguments_unquoted)
+        in ()
       with
-        Parse_error -> begin
-          Printf.printf "test parsing error %s .\n" filename;
-          List.iter (function s -> Printf.printf "%s " s) arguments;
-          Printf.printf "\n"
-        end                                         
+        Parse_error ->
+        parsing_errors := (filename, invocation, arguments) :: !parsing_errors
+
     class iterator' = object(self)
 
 	inherit [_] Libmorbig.CST.iter as super
@@ -197,9 +202,9 @@ module Self : Analyzer.S = struct
 	method! visit_simple_command venv csts =
       match extract_command csts with
       | Some "test" ->
-         register_test filename false (extract_arguments csts)
+         register_test filename "test" false (extract_arguments csts)
       | Some "[" ->
-         register_test filename true (extract_arguments csts)
+         register_test filename "[" true (extract_arguments csts)
       | _ ->
          super#visit_simple_command venv csts
                 
@@ -212,7 +217,18 @@ module Self : Analyzer.S = struct
     Report.add report
 "* Test invocations
 
-  Analyzer under construction."
+  Analyzer under construction.
+
+** Tests that could not be parsed:\n";
+
+    List.iter
+      (function (filename,invocation,arguments) ->
+                Report.add report "    - %s\n    " filename;
+                Report.add report "%s " invocation; 
+                List.iter (function s -> Report.add report " %s" s) arguments;
+                Report.add report "\n"
+      )
+      !parsing_errors;
 
 end (* module Self = struct ... *)
 
