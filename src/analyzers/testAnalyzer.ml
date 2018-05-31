@@ -14,12 +14,12 @@ let unWord' {value=word} =
 let extract_command = function
   | SimpleCommand_CmdPrefix_CmdWord_CmdSuffix (_,cmdword',_)
   | SimpleCommand_CmdPrefix_CmdWord (_,cmdword')
-    -> unCmdWord' cmdword'
+    -> Some (unCmdWord' cmdword')
   | SimpleCommand_CmdName_CmdSuffix (cmdname',_)
   | SimpleCommand_CmdName cmdname'
-    -> unCmdName' cmdname'
+    -> Some (unCmdName' cmdname')
   | SimpleCommand_CmdPrefix _prefix
-    -> raise Not_found
+    -> None
 
 let rec extract_arguments_from_suffix = function
   | CmdSuffix_IoRedirect io_redirect
@@ -40,6 +40,41 @@ let extract_arguments = function
   | SimpleCommand_CmdName _
     -> []
 
+(* tokens for arguments of the test command *)
+type token =
+  | UnOp of string    (* unary operators -e, -f, etc. *) 
+  | BinOp of string   (* binary operators -eq, =, etc. *)
+  | AndOp             (* -a *)
+  | OrOp              (* -o *)
+  | ParL              (* ( *)
+  | ParR              (* ) *)
+  | BracketR          (* ] *)
+  | String of string  (* all the rest *)
+
+let to_token s = match s with
+  (* file existence and type *)
+  | "-e" | "-d" | "-f" | "-b" | "-c" | "-h" | "-L" | "-p" | "-S" -> UnOp s
+  (* file attributes *)
+  | "-g" | "-u" | "-s" | "-r" | "-w" | "-x" -> UnOp s
+  (* GNU extension on files *)
+  | "-G" | "-O" | "-k" -> UnOp s
+  (* GNU extension on files *)
+  | "-nt" | "-ot" | "-ef" -> BinOp s
+  (* unary operators on strings *)
+  | "-n" | "-z" -> UnOp s
+  (* binary operators on strings *)
+  | "=" | "!=" -> BinOp s
+  (* binary operators on integers *)
+  | "-eq" | "-ne" | "-gt" | "-ge" | "-lt" | "-le" -> BinOp s
+  (* unary operator on file descriptor *)
+  | "-t" -> UnOp s
+  | "-a" -> AndOp
+  | "-o" -> OrOp
+  | "("  -> ParL
+  | ")"  -> ParR
+  | "]"  -> BracketR
+  | _    -> String s
+
 module Self : Analyzer.S = struct
 
   let options = []
@@ -49,15 +84,24 @@ module Self : Analyzer.S = struct
   let process_script filename csts =
 
     let module Counter = struct
+
+    let register_test is_bracket arguments =
+      (* is_bracket is true when the command was "[", false when "test" *)
+      ()
+                                                   
     class iterator' = object(self)
 
 	inherit [_] Libmorbig.CST.iter as super
 
 	method! visit_simple_command venv csts =
-      let command = extract_command csts
-      and arguments = extract_arguments csts
-      in ()
-      
+      match extract_command csts with
+      | Some "test" ->
+         register_test false (List.map to_token (extract_arguments csts))
+      | Some "[" ->
+         register_test true (List.map to_token (extract_arguments csts))
+      | _ ->
+         super#visit_simple_command venv csts
+                
     end (* class iterator' = object ... *)
     end (* module Counter = struct ... *)
     in
