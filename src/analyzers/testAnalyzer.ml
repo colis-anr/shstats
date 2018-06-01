@@ -221,7 +221,8 @@ module Self : Analyzer.S = struct
 
     List.iter
       (function (filename,invocation,arguments) ->
-                Report.add report "    - %s\n    " filename;
+                Report.add report "    - %s\n    "
+                           (Report.link_to_source report filename);
                 Report.add report "%s " invocation; 
                 List.iter (function s -> Report.add report " %s" s) arguments;
                 Report.add report "\n"
