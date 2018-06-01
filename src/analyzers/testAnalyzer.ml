@@ -171,6 +171,24 @@ let parse is_bracket tokens =
     | _ -> raise Parse_error
   in parse_S ()       
 
+
+class stringcounter = object (self)
+  val counters : (string,int) Hashtbl.t = Hashtbl.create 8
+
+  method incr key =
+    try
+      let oldval = Hashtbl.find counters key in
+      Hashtbl.replace counters key (oldval+1)
+    with
+      Not_found ->
+      Hashtbl.add counters key 1
+
+  method iter f =
+    Hashtbl.iter
+      f
+      counters
+end
+
 module Self : Analyzer.S = struct
 
   let options = []
@@ -178,18 +196,34 @@ module Self : Analyzer.S = struct
   let name = "test"
 
   let parsing_errors = ref []
+  let count_uniops = new stringcounter
+  let count_binops = new stringcounter
+  let count_contest = ref 0
 
   let process_script filename csts =
 
     let module Counter = struct
 
+    let rec process_expr = function
+      | Andtest (e1,e2) -> process_expr e1; process_expr e2
+      | Ortest (e1,e2) -> process_expr e1; process_expr e2
+      | Onetest l -> process_lit l
+    and process_lit = function
+      | Postest a -> process_atom a
+      | Negtest a -> process_atom a
+    and process_atom = function
+      | Bintest (op,_,_) -> count_binops#incr(op)
+      | Unitest (op,_) -> count_uniops#incr(op)
+      | Contest _ -> incr count_contest
+      | Partest e -> process_expr e
+      
     let register_test filename invocation arguments =
       let arguments_unquoted = List.map UnQuote.on_string arguments
       and is_bracket = (invocation = "[" )
       in
       try
-        let _ = parse is_bracket (List.map to_token arguments_unquoted)
-        in ()
+        process_expr
+          (parse is_bracket (List.map to_token arguments_unquoted))
       with
         Parse_error ->
         parsing_errors := (filename, invocation, arguments) :: !parsing_errors
@@ -217,7 +251,7 @@ module Self : Analyzer.S = struct
 
   Analyzer under construction.
 
-** Tests that could not be parsed:\n";
+** Tests that could not be parsed\n";
 
     List.iter
       (function (filename,invocation,arguments) ->
@@ -228,6 +262,16 @@ module Self : Analyzer.S = struct
                 Report.add report "\n"
       )
       !parsing_errors;
+
+    Report.add report "** Unary test operators\n\n  Operator | Occurrences\n";
+    count_uniops#iter (fun key number ->
+        Report.add report "   %5s   | %8d \n" key number);
+    Report.add report "\n";
+
+    Report.add report "** Binary test operators\n\n  Operator | Occurrences\n";
+    count_binops#iter (fun key number ->
+        Report.add report "   %5s   | %8d \n" key number);
+    Report.add report "\n";
 
 end (* module Self = struct ... *)
 
