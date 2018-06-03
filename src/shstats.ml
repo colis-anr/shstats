@@ -8,7 +8,7 @@ open StructuresAnalyzer
 open MiscAnalyzer
 open FunctionsAnalyzer
 open IdentifierAnalyzer
-(* open TestAnalyzer *)
+open TestAnalyzer
 
 let process = function
   | None -> ()

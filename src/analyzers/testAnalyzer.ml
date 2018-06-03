@@ -4,6 +4,14 @@ open Options
 open Commands
 open Messages
 
+module Name =
+  struct
+    type t = string
+    let compare = Pervasives.compare
+  end
+
+module NameSet = Set.Make(Name)
+
 let unCmdName' {value=CmdName_Word word} =
   Libmorbig.CSTHelpers.unWord word.value
 let unCmdWord' {value=CmdWord_Word word} =
@@ -92,6 +100,15 @@ and test_atom =
   | Contest of string                    (* arg *)
   | Partest of test_expression           (* ( expression ) *)
 
+let rec has_bool_combinators = function
+  | Andtest (_,_) | Ortest (_,_) -> true
+  | Onetest l -> has_bool_lit l
+and has_bool_lit = function
+  | Postest a | Negtest a -> has_bool_atom a
+and has_bool_atom = function
+  | Partest e -> has_bool_combinators e
+  | _ -> false
+
 exception Parse_error
 let parse is_bracket tokens =
   let tokenbuf = ref tokens in
@@ -171,6 +188,24 @@ let parse is_bracket tokens =
     | _ -> raise Parse_error
   in parse_S ()       
 
+class stringcounter = object (self)
+  val counters : (string,int) Hashtbl.t = Hashtbl.create 8
+
+  method incr key =
+    try
+      let oldval = Hashtbl.find counters key in
+      Hashtbl.replace counters key (oldval+1)
+    with
+      Not_found ->
+      Hashtbl.add counters key 1
+
+  method iter_ascending f =
+    List.iter f 
+      (List.sort
+         (fun (_,x) (_,y) -> y-x)
+         (Hashtbl.fold (fun key value acc -> (key,value)::acc) counters []))
+end
+
 module Self : Analyzer.S = struct
 
   let options = []
@@ -178,18 +213,53 @@ module Self : Analyzer.S = struct
   let name = "test"
 
   let parsing_errors = ref []
+  let count_uniops = new stringcounter
+  let count_binops = new stringcounter
+  let count_contest = ref 0
+  let count_testinvocations = ref 0
+  let scripts_with_complex_tests = ref NameSet.empty
+  let count_complex_tests = ref 0
+  let count_dollarone = new stringcounter
 
   let process_script filename csts =
 
     let module Counter = struct
 
+    let rec process_expr = function
+      | Andtest (e1,e2) -> process_expr e1; process_expr e2
+      | Ortest (e1,e2) -> process_expr e1; process_expr e2
+      | Onetest l -> process_lit l
+    and process_lit = function
+      | Postest a -> process_atom a
+      | Negtest a -> process_atom a
+    and process_atom = function
+      | Bintest (op,left,right) -> begin
+          count_binops#incr(op);
+          if op = "=" || op = "!="
+          then if left = "$1"
+               then count_dollarone#incr(right)
+               else if right = "$1"
+               then count_dollarone#incr(left)
+        end
+      | Unitest (op,_) -> count_uniops#incr(op)
+      | Contest _ -> incr count_contest
+      | Partest e -> process_expr e
+      
     let register_test filename invocation arguments =
       let arguments_unquoted = List.map UnQuote.on_string arguments
       and is_bracket = (invocation = "[" )
       in
+      incr count_testinvocations;
       try
-        let _ = parse is_bracket (List.map to_token arguments_unquoted)
-        in ()
+        let ast = parse is_bracket (List.map to_token arguments_unquoted)
+        in
+        process_expr ast;
+        if has_bool_combinators ast
+        then begin
+            scripts_with_complex_tests :=
+              NameSet.add filename (!scripts_with_complex_tests);
+            incr count_complex_tests
+          end
       with
         Parse_error ->
         parsing_errors := (filename, invocation, arguments) :: !parsing_errors
@@ -199,12 +269,12 @@ module Self : Analyzer.S = struct
 	inherit [_] Libmorbig.CST.iter as super
 
 	method! visit_simple_command venv csts =
-      let invocation = extract_command csts in
-      match invocation with
-      | Some s when (s = "test" || s = "[" )
-        -> register_test filename s (extract_arguments csts)
-      | _
-        -> super#visit_simple_command venv csts
+          let invocation = extract_command csts in
+          match invocation with
+          | Some s when (s = "test" || s = "[" )
+            -> register_test filename s (extract_arguments csts)
+          | _
+            -> super#visit_simple_command venv csts
                 
     end (* class iterator' = object ... *)
     end (* module Counter = struct ... *)
@@ -212,21 +282,52 @@ module Self : Analyzer.S = struct
     List.iter ((new Counter.iterator')#visit_complete_command ()) csts
 
   let output_report report =
-    Report.add report
-"* Test invocations
+    Report.add report "* Test invocations\n";
+    Report.add report "  Number of test or []: %d\n" !count_testinvocations; 
 
-  Analyzer under construction.
-
-** Tests that could not be parsed:\n";
-
+    Report.add report "** Tests that could not be parsed\n\n";
     List.iter
       (function (filename,invocation,arguments) ->
-                Report.add report "    - %s\n    " filename;
+                Report.add report "    - %s\n    "
+                           (Report.link_to_source report filename);
                 Report.add report "%s " invocation; 
                 List.iter (function s -> Report.add report " %s" s) arguments;
                 Report.add report "\n"
       )
       !parsing_errors;
+
+    Report.add report "** Unary test operators\n\n";
+    Report.add report "  Operator | Occurrences\n";
+    Report.add report "  ---------+------------\n";
+    count_uniops#iter_ascending (fun (key,number) ->
+        Report.add report "   %5s   | %8d \n" key number);
+    Report.add report "\n";
+
+    Report.add report "** Binary test operators\n\n";
+    Report.add report "  Operator | Occurrences\n";
+    Report.add report "  ---------+------------\n";
+    count_binops#iter_ascending (fun (key,number) ->
+        Report.add report "   %5s   | %8d \n" key number);
+    Report.add report "\n";
+
+    Report.add report "** Tests using boolean operators (-a, -o)\n\n";
+    Report.add report "  Number of tests: %d\n" !count_complex_tests;
+    Report.add report "  Number of scripts: %d\n"
+      (NameSet.cardinal !scripts_with_complex_tests);
+    Report.add report "*** Listing of scripts\n\n";
+    NameSet.iter
+      (function filename ->
+         Report.add report "    - %s\n"
+           (Report.link_to_source report filename))
+      !scripts_with_complex_tests;
+    Report.add report "\n";
+    
+    Report.add report "** Comparisons with $1\n\n";
+    Report.add report "  Compared with           | Occurrences\n";
+    Report.add report "  ------------------------+------------\n";
+    count_dollarone#iter_ascending (fun (key,number) ->
+        Report.add report "   %20s   | %8d \n" key number);
+    Report.add report "\n";
 
 end (* module Self = struct ... *)
 
