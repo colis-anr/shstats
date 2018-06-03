@@ -183,10 +183,11 @@ class stringcounter = object (self)
       Not_found ->
       Hashtbl.add counters key 1
 
-  method iter f =
-    Hashtbl.iter
-      f
-      counters
+  method iter_ascending f =
+    List.iter f 
+      (List.sort
+         (fun (_,x) (_,y) -> y-x)
+         (Hashtbl.fold (fun key value acc -> (key,value)::acc) counters []))
 end
 
 module Self : Analyzer.S = struct
@@ -199,6 +200,7 @@ module Self : Analyzer.S = struct
   let count_uniops = new stringcounter
   let count_binops = new stringcounter
   let count_contest = ref 0
+  let count_testinvocations = ref 0
 
   let process_script filename csts =
 
@@ -221,6 +223,7 @@ module Self : Analyzer.S = struct
       let arguments_unquoted = List.map UnQuote.on_string arguments
       and is_bracket = (invocation = "[" )
       in
+      incr count_testinvocations;
       try
         process_expr
           (parse is_bracket (List.map to_token arguments_unquoted))
@@ -246,13 +249,10 @@ module Self : Analyzer.S = struct
     List.iter ((new Counter.iterator')#visit_complete_command ()) csts
 
   let output_report report =
-    Report.add report
-"* Test invocations
+    Report.add report "* Test invocations\n";
+    Report.add report "  Number of test or []: %d\n" !count_testinvocations; 
 
-  Analyzer under construction.
-
-** Tests that could not be parsed\n";
-
+    Report.add report "** Tests that could not be parsed\n\n";
     List.iter
       (function (filename,invocation,arguments) ->
                 Report.add report "    - %s\n    "
@@ -263,13 +263,17 @@ module Self : Analyzer.S = struct
       )
       !parsing_errors;
 
-    Report.add report "** Unary test operators\n\n  Operator | Occurrences\n";
-    count_uniops#iter (fun key number ->
+    Report.add report "** Unary test operators\n\n";
+    Report.add report "  Operator | Occurrences\n";
+    Report.add report "  ---------+------------\n";
+    count_uniops#iter_ascending (fun (key,number) ->
         Report.add report "   %5s   | %8d \n" key number);
     Report.add report "\n";
 
-    Report.add report "** Binary test operators\n\n  Operator | Occurrences\n";
-    count_binops#iter (fun key number ->
+    Report.add report "** Binary test operators\n\n";
+    Report.add report "  Operator | Occurrences\n";
+    Report.add report "  ---------+------------\n";
+    count_binops#iter_ascending (fun (key,number) ->
         Report.add report "   %5s   | %8d \n" key number);
     Report.add report "\n";
 
