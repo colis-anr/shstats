@@ -4,6 +4,14 @@ open Options
 open Commands
 open Messages
 
+module Name =
+  struct
+    type t = string
+    let compare = Pervasives.compare
+  end
+
+module NameSet = Set.Make(Name)
+
 let unCmdName' {value=CmdName_Word word} =
   Libmorbig.CSTHelpers.unWord word.value
 let unCmdWord' {value=CmdWord_Word word} =
@@ -91,6 +99,15 @@ and test_atom =
   | Unitest of string * string           (* op arg *)
   | Contest of string                    (* arg *)
   | Partest of test_expression           (* ( expression ) *)
+
+let rec has_bool_combinators = function
+  | Andtest (_,_) | Ortest (_,_) -> true
+  | Onetest l -> has_bool_lit l
+and has_bool_lit = function
+  | Postest a | Negtest a -> has_bool_atom a
+and has_bool_atom = function
+  | Partest e -> has_bool_combinators e
+  | _ -> false
 
 exception Parse_error
 let parse is_bracket tokens =
@@ -201,6 +218,8 @@ module Self : Analyzer.S = struct
   let count_binops = new stringcounter
   let count_contest = ref 0
   let count_testinvocations = ref 0
+  let scripts_with_complex_tests = ref NameSet.empty
+  let count_complex_tests = ref 0
 
   let process_script filename csts =
 
@@ -225,8 +244,15 @@ module Self : Analyzer.S = struct
       in
       incr count_testinvocations;
       try
-        process_expr
-          (parse is_bracket (List.map to_token arguments_unquoted))
+        let ast = parse is_bracket (List.map to_token arguments_unquoted)
+        in
+        process_expr ast;
+        if has_bool_combinators ast
+        then begin
+            scripts_with_complex_tests :=
+              NameSet.add filename (!scripts_with_complex_tests);
+            incr count_complex_tests
+          end
       with
         Parse_error ->
         parsing_errors := (filename, invocation, arguments) :: !parsing_errors
@@ -276,6 +302,17 @@ module Self : Analyzer.S = struct
     count_binops#iter_ascending (fun (key,number) ->
         Report.add report "   %5s   | %8d \n" key number);
     Report.add report "\n";
+
+    Report.add report "** Tests using boolean operators (-a, -o)\n\n";
+    Report.add report "  Number of tests: %d\n" !count_complex_tests;
+    Report.add report "  Number of scripts: %d\n"
+      (NameSet.cardinal !scripts_with_complex_tests);
+    Report.add report "*** Listing of scripts\n\n";
+    NameSet.iter
+      (function filename ->
+         Report.add report "    - %s\n"
+           (Report.link_to_source report filename))
+      !scripts_with_complex_tests
 
 end (* module Self = struct ... *)
 
