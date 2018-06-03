@@ -220,6 +220,7 @@ module Self : Analyzer.S = struct
   let count_testinvocations = ref 0
   let scripts_with_complex_tests = ref NameSet.empty
   let count_complex_tests = ref 0
+  let count_dollarone = new stringcounter
 
   let process_script filename csts =
 
@@ -233,7 +234,14 @@ module Self : Analyzer.S = struct
       | Postest a -> process_atom a
       | Negtest a -> process_atom a
     and process_atom = function
-      | Bintest (op,_,_) -> count_binops#incr(op)
+      | Bintest (op,left,right) -> begin
+          count_binops#incr(op);
+          if op = "=" || op = "!="
+          then if left = "$1"
+               then count_dollarone#incr(right)
+               else if right = "$1"
+               then count_dollarone#incr(left)
+        end
       | Unitest (op,_) -> count_uniops#incr(op)
       | Contest _ -> incr count_contest
       | Partest e -> process_expr e
@@ -262,12 +270,12 @@ module Self : Analyzer.S = struct
 	inherit [_] Libmorbig.CST.iter as super
 
 	method! visit_simple_command venv csts =
-      let invocation = extract_command csts in
-      match invocation with
-      | Some s when (s = "test" || s = "[" )
-        -> register_test filename s (extract_arguments csts)
-      | _
-        -> super#visit_simple_command venv csts
+          let invocation = extract_command csts in
+          match invocation with
+          | Some s when (s = "test" || s = "[" )
+            -> register_test filename s (extract_arguments csts)
+          | _
+            -> super#visit_simple_command venv csts
                 
     end (* class iterator' = object ... *)
     end (* module Counter = struct ... *)
@@ -312,7 +320,15 @@ module Self : Analyzer.S = struct
       (function filename ->
          Report.add report "    - %s\n"
            (Report.link_to_source report filename))
-      !scripts_with_complex_tests
+      !scripts_with_complex_tests;
+    Report.add report "\n";
+    
+    Report.add report "** Comparisons with $1\n\n";
+    Report.add report "  Compared with           | Occurrences\n";
+    Report.add report "  ------------------------+------------\n";
+    count_dollarone#iter_ascending (fun (key,number) ->
+        Report.add report "   %20s   | %8d \n" key number);
+    Report.add report "\n";
 
 end (* module Self = struct ... *)
 
