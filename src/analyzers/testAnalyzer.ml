@@ -206,6 +206,39 @@ class stringcounter = object (self)
          (Hashtbl.fold (fun key value acc -> (key,value)::acc) counters []))
 end
 
+class indexed_sets = object (self)
+  val sets : (string,NameSet.t) Hashtbl.t = Hashtbl.create 8
+
+  method add key value =
+    try
+      let oldset = Hashtbl.find sets key in
+      Hashtbl.replace sets key (NameSet.add value oldset) 
+    with
+      Not_found ->
+      Hashtbl.add sets key (NameSet.singleton value)
+
+  method iter f =
+    Hashtbl.iter f sets
+
+end
+
+(* these are the possible first arguments of maintainer scripts, as given
+ by policy v 4.1.4, section 6.5. *)
+let canonical_first_arguments = [
+    "abort-deconfigure";
+    "abort-install";
+    "abort-remove";
+    "abort-upgrade";
+    "configure";
+    "deconfigure";
+    "disappear";
+    "failed-upgrade";
+    "install";
+    "purge";
+    "remove";
+    "upgrade"
+  ]
+
 module Self : Analyzer.S = struct
 
   let options = []
@@ -220,6 +253,10 @@ module Self : Analyzer.S = struct
   let scripts_with_complex_tests = ref NameSet.empty
   let count_complex_tests = ref 0
   let count_dollarone = new stringcounter
+  let scripts_with_strange_dollarone = new indexed_sets
+
+  (* indicates whether we are in a function definition *)
+  let in_fundef = ref false
 
   let process_script filename csts =
 
@@ -235,11 +272,16 @@ module Self : Analyzer.S = struct
     and process_atom = function
       | Bintest (op,left,right) -> begin
           count_binops#incr(op);
-          if op = "=" || op = "!="
-          then if left = "$1"
-               then count_dollarone#incr(right)
-               else if right = "$1"
-               then count_dollarone#incr(left)
+          if not (!in_fundef) &&
+               (op = "=" || op = "!=") && (left="$1"||right="$1")
+          then let otherarg =
+                 if left = "$1" then right else left
+               in begin
+                   count_dollarone#incr(otherarg);
+                   if not (List.mem otherarg canonical_first_arguments)
+                   then
+                     scripts_with_strange_dollarone#add otherarg filename
+                 end
         end
       | Unitest (op,_) -> count_uniops#incr(op)
       | Contest _ -> incr count_contest
@@ -266,16 +308,23 @@ module Self : Analyzer.S = struct
 
     class iterator' = object(self)
 
-	inherit [_] Libmorbig.CST.iter as super
+	  inherit [_] Libmorbig.CST.iter as super
 
-	method! visit_simple_command venv csts =
-          let invocation = extract_command csts in
-          match invocation with
-          | Some s when (s = "test" || s = "[" )
-            -> register_test filename s (extract_arguments csts)
-          | _
-            -> super#visit_simple_command venv csts
-                
+	  method! visit_simple_command venv csts =
+        let invocation = extract_command csts in
+        match invocation with
+        | Some s when (s = "test" || s = "[" )
+          -> register_test filename s (extract_arguments csts)
+        | _
+          -> super#visit_simple_command venv csts
+
+      method! visit_command venv csts = match csts with
+        | Command_FunctionDefinition fdef' ->
+           in_fundef := true;
+           self#visit_function_definition' venv fdef';
+           in_fundef := false
+        | _ -> super#visit_command venv csts
+
     end (* class iterator' = object ... *)
     end (* module Counter = struct ... *)
     in
@@ -322,11 +371,22 @@ module Self : Analyzer.S = struct
       !scripts_with_complex_tests;
     Report.add report "\n";
     
-    Report.add report "** Comparisons with $1\n\n";
+    Report.add report "** Comparisons with $1 (outside function definitions)\n\n";
     Report.add report "  Compared with           | Occurrences\n";
     Report.add report "  ------------------------+------------\n";
     count_dollarone#iter_ascending (fun (key,number) ->
         Report.add report "   %20s   | %8d \n" key number);
+    Report.add report "*** Listing of scripts (canonical arguments for $1 omitted)\n";
+    scripts_with_strange_dollarone#iter
+      (fun key set ->
+        Report.add report "   $1 compared with: %s\n" key;
+        NameSet.iter
+          (function filename ->
+                    Report.add report "   %s\n"
+                               (Report.link_to_source report filename))
+          set;
+        Report.add report "\n"
+      );
     Report.add report "\n";
 
 end (* module Self = struct ... *)
