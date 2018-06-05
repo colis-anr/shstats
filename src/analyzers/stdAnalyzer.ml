@@ -26,22 +26,9 @@ class ['a, 'b] counter (name: string) = object (self)
       values
 end
 
-let split_on_char sep s =
-  (* In the stdlib since 4.04.0 *)
-  let r = ref [] in
-  let j = ref (String.length s) in
-  for i = String.length s - 1 downto 0 do
-    if String.unsafe_get s i = sep then
-      (
-        r := String.sub s (i + 1) (!j - i - 1) :: !r;
-        j := i
-      )
-  done;
-  String.sub s 0 !j :: !r
-
 let indent_string s n =
   let sep = "\n" ^ (String.make n ' ') in
-  String.concat sep (split_on_char '\n' s)
+  String.concat sep (ExtPervasives.split_on_char '\n' s)
 
 class occCounter (name: string) = object (self)
   inherit [string, string] counter name as super

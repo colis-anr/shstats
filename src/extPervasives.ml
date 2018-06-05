@@ -179,12 +179,18 @@ let pp_to_string pp arg =
   Format.pp_print_flush ppf ();
   Buffer.contents b
 
-let rec split_on_char c s =
-  try
-    let i = String.index s c in
-    (String.sub s 0 i) :: (split_on_char c (String.sub s (i + 1) (String.length s - i - 1)))
-  with
-    Not_found -> [s]
+let split_on_char sep s =
+  (* In the stdlib since 4.04.0 *)
+  let r = ref [] in
+  let j = ref (String.length s) in
+  for i = String.length s - 1 downto 0 do
+    if String.unsafe_get s i = sep then
+      (
+        r := String.sub s (i + 1) (!j - i - 1) :: !r;
+        j := i
+      )
+  done;
+  String.sub s 0 !j :: !r;;
 
 let remove_extension f =
   try
