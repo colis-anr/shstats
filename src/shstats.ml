@@ -3,7 +3,6 @@
 open Commands
 
 open CommandAnalyzer
-open VariableAnalyzer
 open StructuresAnalyzer
 open MiscAnalyzer
 open FunctionsAnalyzer
