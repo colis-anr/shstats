@@ -1,6 +1,7 @@
 open Libmorbig.CST
 open Libmorbig.CSTHelpers
 
+(* module of graphs with cycle check *)
 module Graph (Key : Map.OrderedType) =
   struct
     module KMap = Map.Make(Key)
@@ -29,7 +30,11 @@ module Graph (Key : Map.OrderedType) =
       try
         let source = KMap.find key_source graph in
         let target = KMap.find key_target graph in
-        KMap.add key_source { source with neighbours = KMap.add key_target target source.neighbours } graph
+        KMap.add
+          key_source
+          { source with neighbours =
+                          KMap.add key_target target source.neighbours }
+          graph
       with
         Not_found -> raise VerticeDoesntExist
 
@@ -45,9 +50,18 @@ module Graph (Key : Map.OrderedType) =
           visited
         else
           let trace = KSet.add node.key trace in
-          KMap.fold (fun _ node visited -> visit visited trace node) node.neighbours (KSet.add node.key visited)
+          KSet.add
+            node.key
+            (KMap.fold
+               (fun _ node visited -> visit visited trace node)
+               node.neighbours
+               visited)
       in
-      let _ = KMap.fold (fun _ node visited -> visit visited KSet.empty node) graph KSet.empty in
+      let _ = KMap.fold
+                (fun _ node visited -> visit visited KSet.empty node)
+                graph
+                KSet.empty
+      in
       ()
 
     let print graph ppf key_to_string =
@@ -57,13 +71,12 @@ module Graph (Key : Map.OrderedType) =
           Format.fprintf ppf "\"%s\";@\n" (key_to_string source.key);
           KMap.iter
             (fun _ target ->
-              Format.fprintf ppf "\"%s\" -> \"%s\";@\n" (key_to_string source.key) (key_to_string target.key))
+              Format.fprintf ppf "\"%s\" -> \"%s\";@\n"
+                             (key_to_string source.key)
+                             (key_to_string target.key))
             source.neighbours)
         graph;
       Format.fprintf ppf "@]}@\n"
-
-
-
   end
 
 module SGraph = Graph (String)
@@ -84,8 +97,8 @@ module Self : Analyzer.S = struct
     let module Counter =
       struct
         class iterator' = object (self)
-	  inherit [_] Libmorbig.CST.iter as super
-
+	      inherit [_] Libmorbig.CST.iter as super
+                                              
           val functions_stack =
             let s = Stack.create () in
             Stack.push "*toplevel*" s;
@@ -96,7 +109,7 @@ module Self : Analyzer.S = struct
             
           method begin_function name = Stack.push name functions_stack
           method end_function _ = let _ = Stack.pop functions_stack in ()
-
+    
           method in_function () = not (Stack.is_empty functions_stack)
           method get_function () = Stack.top functions_stack
 
@@ -112,9 +125,11 @@ module Self : Analyzer.S = struct
               SGraph.VerticeDoesntExist -> ()
 
           method! visit_function_definition venv = function
-            | FunctionDefinition_Fname_Lparen_Rparen_LineBreak_FunctionBody (fn, _, fb) as fd ->
+            | FunctionDefinition_Fname_Lparen_Rparen_LineBreak_FunctionBody
+              (fn, _, fb) (* as fd *)->
                let Fname_Name (Name fn) = fn.value in
-               functions_counter#add filename ""; (*FIXME: (pp_shell_repr pp_function_definition fd); *)
+               functions_counter#add filename "";
+               (*FIXME: (pp_shell_repr pp_function_definition fd); *)
                self#begin_function fn;
                (
                  try
@@ -122,9 +137,13 @@ module Self : Analyzer.S = struct
                    Hashtbl.add functions_tbl fn fb
                  with
                    SGraph.VerticeExists ->
-                   Format.fprintf ppf_duplicates "- %s\n  - '%s' is defined more than once@." filename fn;
+                   Format.fprintf
+                     ppf_duplicates
+                     "- %s\n  - '%s' is defined more than once@." filename fn;
                    if fb = Hashtbl.find functions_tbl fn then
-                     Format.fprintf ppf_duplicates "    - and with the same body@."
+                     Format.fprintf
+                       ppf_duplicates
+                       "    - and with the same body@."
                );
                self#visit_function_body' venv fb;
                self#end_function fn
@@ -145,13 +164,20 @@ module Self : Analyzer.S = struct
       SGraph.check_acyclic (i#get_dep_graph ())
     with
       SGraph.Cycle ->
-      Format.fprintf ppf_cycles "- %s@.@[<h 2>  " filename;
-      Format.fprintf ppf_cycles "#+BEGIN_SRC dot :file %s.png :exports results@.@[<h 2>  " filename;
+      Format.fprintf
+        ppf_cycles
+        "- %s@.@[<h 2>  " filename;
+      Format.fprintf
+        ppf_cycles
+        "#+BEGIN_SRC dot :file %s.png :exports results@.@[<h 2>  " filename;
       SGraph.print (i#get_dep_graph()) ppf_cycles (fun x -> x);
       Format.fprintf ppf_cycles "@]#+END_SRC@.@]"
 
   let output_report report =
-    Report.add report "* Functions\n- %d functions declarations in %d files\n** Occurrences@." (functions_counter#n_occurrences()) (functions_counter#n_files());
+    Report.add
+      report
+      "* Functions\n- %d functions declarations in %d files\n** Occurrences@."
+      (functions_counter#n_occurrences()) (functions_counter#n_files());
     functions_counter#output_occurrences report;
 
     let duplicates = Buffer.contents buf_duplicates in
