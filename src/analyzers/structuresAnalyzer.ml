@@ -4,7 +4,6 @@ open Libmorbig.CSTHelpers
 open Options
 open Commands
 open Messages
-open StdAnalyzer
    
 module Self : Analyzer.S = struct
   let name = "structures"
@@ -41,9 +40,9 @@ module Self : Analyzer.S = struct
     class forHandler (name: string) = object (self)
       inherit [for_clause] baseHandler name as super
 
-      val variables_counter = new occCounter "variables"
-      val subshells_counter = new occCounter "subshells"
-      val globs_counter = new occCounter "globs"
+      val variables_counter = new Counters.occCounter "variables"
+      val subshells_counter = new Counters.occCounter "subshells"
+      val globs_counter = new Counters.occCounter "globs"
                             
       method count_dollar_in_word filename representation w =
         let string_mem s c =

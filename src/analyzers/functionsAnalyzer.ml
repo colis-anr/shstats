@@ -4,7 +4,6 @@ open Libmorbig.CSTHelpers
 open Options
 open Commands
 open Messages
-open StdAnalyzer
 
 module Graph (Key : Map.OrderedType) =
   struct
@@ -77,7 +76,7 @@ module Self : Analyzer.S = struct
   let name = "functions"
   let options = []
 
-  let functions_counter = new occCounter "functions"
+  let functions_counter = new Counters.occCounter "functions"
 
   let buf_cycles = Buffer.create 8
   let ppf_cycles = Format.formatter_of_buffer buf_cycles
