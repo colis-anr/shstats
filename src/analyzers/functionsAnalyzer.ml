@@ -1,9 +1,5 @@
-open ExtPervasives
 open Libmorbig.CST
 open Libmorbig.CSTHelpers
-open Options
-open Commands
-open Messages
 
 module Graph (Key : Map.OrderedType) =
   struct
