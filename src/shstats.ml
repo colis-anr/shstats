@@ -7,7 +7,7 @@ open VariableAnalyzer
 open StructuresAnalyzer
 open MiscAnalyzer
 open FunctionsAnalyzer
-open IdentifierAnalyzer
+open AssignmentAnalyzer
 open TestAnalyzer
 
 let process = function

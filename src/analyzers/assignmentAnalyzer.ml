@@ -20,7 +20,7 @@ module Self : Analyzer.S = struct
 
   let options = []
 
-  let name = "identifiers"
+  let name = "assignment"
 
   type identifier = Constant | Variable
 
