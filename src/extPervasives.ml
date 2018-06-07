@@ -1,12 +1,9 @@
 (**************************************************************************)
-(*  Copyright (C) 2017 Yann Régis-Gianas, Nicolas Jeannerod,              *)
+(*  Copyright (C) 2017,2018 Nicolas Jeannerod, Yann Régis-Gianas,         *)
 (*  Ralf Treinen.                                                         *)
 (*                                                                        *)
 (*  This is free software: you can redistribute it and/or modify it       *)
 (*  under the terms of the GNU General Public License, version 3.         *)
-(*                                                                        *)
-(*  Additional terms apply, due to the reproduction of portions of        *)
-(*  the POSIX standard. Please refer to the file COPYING for details.     *)
 (**************************************************************************)
 
 let rec nat_exp k = function

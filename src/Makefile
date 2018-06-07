@@ -1,4 +1,4 @@
-.PHONY: all clean debug
+.PHONY: all clean debug headers
 
 OCAMLBUILD=ocamlbuild -use-ocamlfind
 
@@ -9,3 +9,6 @@ stats:
 
 clean:
 	$(OCAMLBUILD) -clean
+
+headers:
+	headache -h .header *.ml *.mli analyzers/*.ml
