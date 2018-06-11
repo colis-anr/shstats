@@ -323,7 +323,7 @@ module Self (*: Analyzer.S*) = struct
     Report.add report "  |-------|-------|--------|\n";
     List.iteri (fun i level ->
         let nb = StringSet.cardinal use_exotic_commands.(i) in
-        let p = float_of_int nb *. 100. /. float_of_int nb_files in
+        let p = percentage nb nb_files in
         Report.add report "  | %05d | %05d | %5.2f%% |\n" level nb p
       ) !exotic_command_levels;
     Report.add report "  |-------|-------|--------|\n"

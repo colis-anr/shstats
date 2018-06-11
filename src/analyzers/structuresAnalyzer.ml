@@ -100,21 +100,21 @@ module Self : Analyzer.S = struct
           name !counter !files_counter;
         
         Report.add report
-          "*** %d (%d%%) contain a variable\n"
+          "*** %d (%f%%) contain a variable\n"
           (variables_counter#n_occurrences())
-          (100 * variables_counter#n_occurrences() / !counter);
+          (percentage (variables_counter#n_occurrences()) !counter);
         variables_counter#output_occurrences report;
         
         Report.add report
-          "*** %d (%d%%) contain a subshell\n"
+          "*** %d (%f%%) contain a subshell\n"
           (subshells_counter#n_occurrences())
-          (100 * subshells_counter#n_occurrences() / !counter);
+          (percentage (subshells_counter#n_occurrences()) !counter);
         subshells_counter#output_occurrences report;
         
         Report.add report
-          "*** %d (%d%%) contain a glob\n"
+          "*** %d (%f%%) contain a glob\n"
           (globs_counter#n_occurrences())
-          (100 * globs_counter#n_occurrences() / !counter);
+          (percentage (globs_counter#n_occurrences()) !counter);
         globs_counter#output_occurrences report
     end
 
@@ -134,7 +134,7 @@ module Self : Analyzer.S = struct
 
       method output_report report =
         super#output_report report;
-        Report.add report "*** Details\n- %d (%d%%) of them are matching on $1\n" !dollar1 (100 * !dollar1 / !counter)
+        Report.add report "*** Details\n- %d (%f%%) of them are matching on $1\n" !dollar1 (percentage !dollar1 !counter)
     end
 
     class whileHandler (name: string) = object (self)
@@ -195,7 +195,7 @@ module Self : Analyzer.S = struct
 
       method output_report report =
         super#output_report report;
-        Report.add report "*** Details\n- %d (%d%%) of them are using 'read'\n" !reads (100 * !reads / !counter)
+        Report.add report "*** Details\n- %d (%f%%) of them are using 'read'\n" !reads (percentage !reads !counter)
     end
   end
 

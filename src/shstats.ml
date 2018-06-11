@@ -28,10 +28,7 @@ module ProgressLine =
       { name ; total ; curr = 0 }
 
     let percentage ?(scale=100) l =
-      if l.total = 0 then
-        scale
-      else
-        (scale * l.curr) / l.total
+      ExtPervasives.percentage_i ~scale l.curr l.total
 
     let eprint l =
       let open Format in

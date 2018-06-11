@@ -202,3 +202,9 @@ let extension f =
     String.sub f i (String.length f - i)
   with
     Not_found -> ""
+
+let percentage ?(scale=100.) n d =
+  if d = 0 then scale else (scale *. float_of_int n) /. (float_of_int d)
+
+let percentage_i ?(scale=100) n d =
+  int_of_float (percentage ~scale:(float_of_int scale) n d)
