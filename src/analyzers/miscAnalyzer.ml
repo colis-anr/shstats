@@ -184,7 +184,6 @@ module Self : Analyzer.S = struct
 
   let output_report report =
     let open Report in
-    Report.add report "#+TITLE: Miscellaenous Analyzer\n";
     ifs_counter#output_report report;
     cmd_string_counter#output_report report
 end

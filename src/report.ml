@@ -39,33 +39,46 @@ let hash name = Format.sprintf "%x" (Hashtbl.hash name) (*FIXME: CRC32?*)
 (* =============================== [ Report ] =============================== *)
 
 type t =
-  { title : string ;
-    path : string list ;
+  { name : string ;
+    safe_name : string ;
+    title : string ;
+    root : string ;
+    path : string ;
     buffer : Buffer.t ;
     formatter : Format.formatter ;
     subreports : (string, t) Hashtbl.t }
-
-let create ?(path=[]) title =
-  let buffer = Buffer.create 8 in
-  let formatter = Format.formatter_of_buffer buffer in
-  let subreports = Hashtbl.create 8 in
-  { title ; path ; buffer ; formatter ; subreports }
 
 let safe_report_name name =
   let slug = slug ~limit:16 name in
   let hash = hash name in
   if slug = "" then hash else slug ^ "." ^ hash
 
+let create ~root ~path ~title ~name =
+  let title = if title = "" then name else title in
+  let safe_name = safe_report_name name in
+  let buffer = Buffer.create 8 in
+  let formatter = Format.formatter_of_buffer buffer in
+  let subreports = Hashtbl.create 8 in
+  { name ; safe_name ; title ;
+    root ; path ;
+    buffer ; formatter ; subreports }
+
 let create_subreport report ?(title="") name =
   if Hashtbl.mem report.subreports name then
     raise (Invalid_argument "add_subreport")
   else
-    let subreport = create ~path:((safe_report_name name) :: report.path) (if title = "" then name else title) in
+    let subreport =
+      create
+        ~root:Filename.(concat report.root parent_dir_name)
+        ~path:Filename.(concat report.path (safe_report_name name))
+        ~title ~name
+    in
     Hashtbl.add report.subreports name subreport;
     subreport
 
-(* shadow create to hide the optionnal path argument *)
-let create title = create title
+(* shadow create to hide the optionnal arguments *)
+let create ?(title="") name =
+  create ~root:"." ~path:"." ~title ~name
 
 let has_subreports report =
   Hashtbl.length report.subreports <> 0
@@ -101,13 +114,10 @@ let link_to_file target text =
   link "file" target text
 
 let path_to_root report =
-  let path = List.map (fun _ -> "..") report.path in
-  let path = if has_subreports report then path else List.tl path in
-  "./" ^ String.concat "/" path
-
+  report.root
+  
 let path_from_root report =
-  let path = List.rev report.path in
-  let path = "./" ^ String.concat "/" path in
+  let path = report.path in
   if has_subreports report
   then path ^ "/index.org"
   else path ^ ".org"
@@ -141,13 +151,14 @@ let link_to_source report ?(text="") source =
 let rec commit_aux report path =
   Format.pp_print_flush report.formatter ();
   let file = open_out (
-      if Hashtbl.length report.subreports = 0 then
-        (path ^ ".org")
-      else
-        (Shell.mkdir path;
-         Filename.concat path "index.org")
-    )
+                 if Hashtbl.length report.subreports = 0 then
+                   (path ^ ".org")
+                 else
+                   (Shell.mkdir path;
+                    Filename.concat path "index.org")
+               )
   in
+  output_string file (Format.sprintf "#+TITLE: %s\n\n" report.title);
   output_string file (Buffer.contents report.buffer);
   close_out file;
   Hashtbl.iter

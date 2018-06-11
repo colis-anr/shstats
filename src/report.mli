@@ -8,7 +8,7 @@
 
 type t
 
-val create : string -> t
+val create : ?title:string -> string -> t
 val create_subreport : t -> ?title:string -> string -> t
 val commit : t -> string -> unit
 
