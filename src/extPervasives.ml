@@ -208,3 +208,12 @@ let percentage ?(scale=100.) n d =
 
 let percentage_i ?(scale=100) n d =
   int_of_float (percentage ~scale:(float_of_int scale) n d)
+
+let extract p1 p2 = (* FIXME: poorly chosen name *)
+  let open Lexing in
+  let buf = Bytes.make (p2.pos_cnum - p1.pos_bol) ' ' in
+  let ic = open_in p1.pos_fname in
+  seek_in ic p1.pos_cnum;
+  really_input ic buf (p1.pos_cnum - p1.pos_bol) (p2.pos_cnum - p1.pos_cnum);
+  close_in ic;
+  Bytes.to_string buf
