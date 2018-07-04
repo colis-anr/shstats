@@ -16,6 +16,7 @@ open MiscAnalyzer
 open FunctionsAnalyzer
 open AssignmentAnalyzer
 open TestAnalyzer
+open ExpandAnalyzer
 
 module ProgressLine =
   struct
