@@ -12,46 +12,68 @@ open Options
 open Commands
 open Messages
 
+let unWord' {value=word} =
+  Libmorbig.CSTHelpers.unWord word
+let unCmdWord' {value=CmdWord_Word word} =
+  Libmorbig.CSTHelpers.unWord word.value
+                              
+module StringSet = Set.Make(String)
+
+let is_special_builtin s =
+  List.mem s
+           [
+             "break"; ":"; "continue"; "."; "eval"; "exec"; "exit";
+             "export"; "readonly"; "return"; "set"; "shift"; "times";
+             "trap"; "unset"
+           ]
+           
 module Self : Analyzer.S = struct
 
   let options = []
 
   let name = "expander"
                                  
-  let process_script filename csts =
-    let module Expander = struct
+  let process_script filename cst =
 
-    class expand' = object(self)
-
-	inherit [_] Libmorbig.CST.map as super
-
-	val complex_context_level = ref 0 (* Nesting level of complex contexts. *)
-
-	method enter_complex_context =
-	  incr complex_context_level
-
-	method exit_complex_context =
-	  decr complex_context_level
-
-	method on_complex_context f x =
-	  self#enter_complex_context;
-	  f x;
-	  self#exit_complex_context
-
-	method is_under_complex_context =
-	  !complex_context_level > 0
-
-    end (* class expand' = object ... *)
-    end (* module Expander = struct ... *)
+    let module Effect = struct
+        class effect' = object(self)
+          inherit [_] Libmorbig.CST.reduce as super
+          method zero = StringSet.empty
+          method plus s1 s2 = StringSet.union s1 s2
+          method! visit_assignment_word functions (name,word) =
+            StringSet.singleton (Libmorbig.CSTHelpers.unName name)
+          method! visit_simple_command functions cst = match cst with
+            | SimpleCommand_CmdPrefix_CmdWord_CmdSuffix (pre',cw',suf') ->
+               if List.mem (unCmdWord' cw') functions
+                  || is_special_builtin (unCmdWord' cw')
+               then self#plus
+                      (self#visit_simple_prefix' functions pre')
+                      (self#visit_cmd_suffix' functions suf')
+               else self#visit_cmd_suffix' functions suf'
+            | SimpleCommand_CmdPrefix_CmdWord (pre',cw') ->
+               if List.mem (unCmdWord' cw') functions
+                  || is_special_builtin (unCmdWord' cw')
+               then self#visit_cmd_prefix' functions pre'
+               else StringSet.empty
+            | SimpleCommand_CmdPrefix pre' ->
+               self#visit_cmd_prefix' functions pre'
+            | SimpleCommand_CmdName_CmdSuffix (nam',suf') ->
+               self#visit_cmd_suffix' functions suf'
+            | SimpleCommand_CmdName nam' ->
+               StringSet.empty
+        end                
+    end
     in
-    let expanded_csts =
-      List.map ((new Expander.expand')#map_complete_command ()) csts
-    in
-    let cout = open_out (filename^".expanded")
+    let cout = open_out (filename^".vars")
     in begin
-        JsonHelpers.save_as_json true cout cst;
+        StringSet.iter
+          (function s -> Printf.fprintf cout "%s\n" s)
+          ((new Effect.effect')#visit_complete_command_list [] cst);
         close_out cout
       end
+
+  let output_report report = ()
+    
 
 end (* module Self = struct ... *)
 
