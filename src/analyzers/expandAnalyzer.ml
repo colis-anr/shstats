@@ -36,29 +36,34 @@ module Self : Analyzer.S = struct
   let process_script filename cst =
 
     let module Effect = struct
+
+        let visible_functions = ref []
+
+        let is_function s = List.mem s (!visible_functions)
+                                     
         class effect' = object(self)
           inherit [_] Libmorbig.CST.reduce as super
           method zero = StringSet.empty
           method plus s1 s2 = StringSet.union s1 s2
-          method! visit_assignment_word functions (name,word) =
+          method! visit_assignment_word _ (name,word) =
             StringSet.singleton (Libmorbig.CSTHelpers.unName name)
-          method! visit_simple_command functions cst = match cst with
+          method! visit_simple_command env cst = match cst with
             | SimpleCommand_CmdPrefix_CmdWord_CmdSuffix (pre',cw',suf') ->
-               if List.mem (unCmdWord' cw') functions
+               if is_function (unCmdWord' cw')
                   || is_special_builtin (unCmdWord' cw')
                then self#plus
-                      (self#visit_simple_prefix' functions pre')
-                      (self#visit_cmd_suffix' functions suf')
-               else self#visit_cmd_suffix' functions suf'
+                      (self#visit_cmd_suffix' env suf')
+                      (self#visit_cmd_prefix' env pre')
+               else self#visit_cmd_suffix' env suf'
             | SimpleCommand_CmdPrefix_CmdWord (pre',cw') ->
-               if List.mem (unCmdWord' cw') functions
+               if is_function (unCmdWord' cw')
                   || is_special_builtin (unCmdWord' cw')
-               then self#visit_cmd_prefix' functions pre'
+               then self#visit_cmd_prefix' env pre'
                else StringSet.empty
             | SimpleCommand_CmdPrefix pre' ->
-               self#visit_cmd_prefix' functions pre'
+               self#visit_cmd_prefix' env pre'
             | SimpleCommand_CmdName_CmdSuffix (nam',suf') ->
-               self#visit_cmd_suffix' functions suf'
+               self#visit_cmd_suffix' env suf'
             | SimpleCommand_CmdName nam' ->
                StringSet.empty
         end                
