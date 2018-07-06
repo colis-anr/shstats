@@ -268,8 +268,6 @@ module Self : Analyzer.S = struct
 
   let process_script filename csts =
 
-    let module Counter = struct
-
     let rec process_expr = function
       | Andtest (e1,e2) -> process_expr e1; process_expr e2
       | Ortest (e1,e2) -> process_expr e1; process_expr e2
@@ -294,7 +292,8 @@ module Self : Analyzer.S = struct
       | Unitest (op,_) -> count_uniops#incr(op)
       | Contest _ -> incr count_contest
       | Partest e -> process_expr e
-      
+    in
+    
     let register_test filename invocation arguments =
       let arguments_unquoted = List.map UnQuote.on_string arguments
       and is_bracket = (invocation = "[" )
@@ -313,31 +312,28 @@ module Self : Analyzer.S = struct
       with
         Parse_error ->
         parsing_errors := (filename, invocation, arguments) :: !parsing_errors
+    in
+    
+    let counter = object(self)
+      inherit [_] Libmorbig.CST.iter as super
 
-    class iterator' = object(self)
-
-	  inherit [_] Libmorbig.CST.iter as super
-
-	  method! visit_simple_command venv csts =
+      method! visit_simple_command () csts =
         let invocation = extract_command csts in
         match invocation with
         | Some s when (s = "test" || s = "[" )
           -> register_test filename s (extract_arguments csts)
         | _
-          -> super#visit_simple_command venv csts
+          -> super#visit_simple_command () csts
 
-      method! visit_command venv csts = match csts with
+      method! visit_command () csts = match csts with
         | Command_FunctionDefinition fdef' ->
            in_fundef := true;
-           self#visit_function_definition' venv fdef';
+           self#visit_function_definition' () fdef';
            in_fundef := false
-        | _ -> super#visit_command venv csts
-
-    end (* class iterator' = object ... *)
-    end (* module Counter = struct ... *)
-    in
-    List.iter ((new Counter.iterator')#visit_complete_command ()) csts
-
+        | _ -> super#visit_command () csts
+    end in
+    List.iter (counter#visit_complete_command ()) csts
+                       
   let output_report report =
     Report.add report "* Test invocations\n";
     Report.add report "  Number of test or []: %d\n" !count_testinvocations; 

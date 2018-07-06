@@ -127,60 +127,56 @@ module Self : Analyzer.S = struct
   let cmd_string_counter = new cmd_string_counter
 
   let process_script filename csts =
-    let module Counter =
-      struct
-        class iterator' = object (self)
-	  inherit [_] Libmorbig.CST.iter as super
+    let counter = object (self)
+      inherit [_] Libmorbig.CST.iter as super
 
-          method! visit_cmd_prefix venv = function
-            | CmdPrefix_IoRedirect i ->
-               self#visit_io_redirect' venv i
-            | CmdPrefix_CmdPrefix_IoRedirect (cp, i) ->
-               self#visit_cmd_prefix' venv cp;
-               self#visit_io_redirect' venv i
-            | CmdPrefix_AssignmentWord aw ->
-               let (Name n, _) = aw.value in
-               if n = "IFS" then
-                 ifs_counter#handle filename "" (*FIXME: (pp_to_string pp_cmd_prefix cp) *)
-            | CmdPrefix_CmdPrefix_AssignmentWord (cp, aw) ->
-               self#visit_cmd_prefix' venv cp;
-               let (Name n, _) = aw.value in
-               if n = "IFS" then
-                 ifs_counter#handle filename "" (*FIXME: (pp_to_string pp_cmd_prefix cp) *)
+      method! visit_cmd_prefix () = function
+        | CmdPrefix_IoRedirect i ->
+           self#visit_io_redirect' () i
+        | CmdPrefix_CmdPrefix_IoRedirect (cp, i) ->
+           self#visit_cmd_prefix' () cp;
+           self#visit_io_redirect' () i
+        | CmdPrefix_AssignmentWord aw ->
+           let (Name n, _) = aw.value in
+           if n = "IFS" then
+             ifs_counter#handle filename "" (*FIXME: (pp_to_string pp_cmd_prefix cp) *)
+        | CmdPrefix_CmdPrefix_AssignmentWord (cp, aw) ->
+           self#visit_cmd_prefix' () cp;
+           let (Name n, _) = aw.value in
+           if n = "IFS" then
+             ifs_counter#handle filename "" (*FIXME: (pp_to_string pp_cmd_prefix cp) *)
 
-          method! visit_simple_command venv sc =
-            let ssc = "" in (*FIXME: pp_to_string pp_simple_command sc in *)
-            match sc with
-            | SimpleCommand_CmdPrefix_CmdWord_CmdSuffix (cp, cw, cs) ->
-               let CmdWord_Word w' = cw.value in
-               self#visit_cmd_prefix' venv cp;
-               self#visit_cmd_word' venv cw;
-               self#visit_cmd_suffix' venv cs;
-               cmd_string_counter#handle filename (unWord w'.value) ssc
+      method! visit_simple_command () sc =
+        let ssc = "" in (*FIXME: pp_to_string pp_simple_command sc in *)
+        match sc with
+        | SimpleCommand_CmdPrefix_CmdWord_CmdSuffix (cp, cw, cs) ->
+           let CmdWord_Word w' = cw.value in
+           self#visit_cmd_prefix' () cp;
+           self#visit_cmd_word' () cw;
+           self#visit_cmd_suffix' () cs;
+           cmd_string_counter#handle filename (unWord w'.value) ssc
 
-            | SimpleCommand_CmdPrefix_CmdWord (cp, cw) ->
-               let CmdWord_Word w' = cw.value in
-               self#visit_cmd_prefix' venv cp;
-               self#visit_cmd_word' venv cw;
-               cmd_string_counter#handle filename (unWord w'.value) ssc
+        | SimpleCommand_CmdPrefix_CmdWord (cp, cw) ->
+           let CmdWord_Word w' = cw.value in
+           self#visit_cmd_prefix' () cp;
+           self#visit_cmd_word' () cw;
+           cmd_string_counter#handle filename (unWord w'.value) ssc
 
-            | SimpleCommand_CmdPrefix cp ->
-               self#visit_cmd_prefix' venv cp
+        | SimpleCommand_CmdPrefix cp ->
+           self#visit_cmd_prefix' () cp
 
-            | SimpleCommand_CmdName_CmdSuffix (cn, cs) ->
-               let CmdName_Word w' = cn.value in
-               self#visit_cmd_name' venv cn;
-               self#visit_cmd_suffix' venv cs;
-               cmd_string_counter#handle filename (unWord w'.value) ssc
+        | SimpleCommand_CmdName_CmdSuffix (cn, cs) ->
+           let CmdName_Word w' = cn.value in
+           self#visit_cmd_name' () cn;
+           self#visit_cmd_suffix' () cs;
+           cmd_string_counter#handle filename (unWord w'.value) ssc
 
-            | SimpleCommand_CmdName cn ->
-               let CmdName_Word w' = cn.value in
-               self#visit_cmd_name' venv cn;
-               cmd_string_counter#handle filename (unWord w'.value) ssc
-        end
-      end
-    in
-    List.iter ((new Counter.iterator')#visit_complete_command ()) csts
+        | SimpleCommand_CmdName cn ->
+           let CmdName_Word w' = cn.value in
+           self#visit_cmd_name' () cn;
+           cmd_string_counter#handle filename (unWord w'.value) ssc
+    end in
+    List.iter (counter#visit_complete_command ()) csts
 
   let output_report report =
     let open Report in

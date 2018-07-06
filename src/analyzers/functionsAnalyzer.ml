@@ -102,74 +102,69 @@ module Self : Analyzer.S = struct
   let ppf_duplicates = Format.formatter_of_buffer buf_duplicates
 
   let process_script filename csts =
-    let module Counter =
-      struct
-        class iterator' = object (self)
-	      inherit [_] Libmorbig.CST.iter as super
+    let counter = object (self)
+      inherit [_] Libmorbig.CST.iter as super
                                               
-          val functions_stack =
-            let s = Stack.create () in
-            Stack.push "*toplevel*" s;
-            s
+      val functions_stack =
+        let s = Stack.create () in
+        Stack.push "*toplevel*" s;
+        s
 
-          val functions_tbl =
-            Hashtbl.create 8
-            
-          method begin_function name = Stack.push name functions_stack
-          method end_function _ = let _ = Stack.pop functions_stack in ()
-    
-          method in_function () = not (Stack.is_empty functions_stack)
-          method get_function () = Stack.top functions_stack
+      val functions_tbl =
+        Hashtbl.create 8
+        
+      method begin_function name = Stack.push name functions_stack
+      method end_function _ = let _ = Stack.pop functions_stack in ()
+                                                                 
+      method in_function () = not (Stack.is_empty functions_stack)
+      method get_function () = Stack.top functions_stack
 
-          val dep_graph = ref (SGraph.add_vertice SGraph.empty "*toplevel*")
+      val dep_graph = ref (SGraph.add_vertice SGraph.empty "*toplevel*")
 
-          method get_dep_graph () =
-            !dep_graph
+      method get_dep_graph () =
+        !dep_graph
 
-          method add_edge_to s =
-            try
-              dep_graph := SGraph.add_edge !dep_graph (self#get_function ()) s
-            with
-              SGraph.VerticeDoesntExist -> ()
+      method add_edge_to s =
+        try
+          dep_graph := SGraph.add_edge !dep_graph (self#get_function ()) s
+        with
+          SGraph.VerticeDoesntExist -> ()
 
-          method! visit_function_definition venv = function
-            | FunctionDefinition_Fname_Lparen_Rparen_LineBreak_FunctionBody
-              (fn, _, fb) (* as fd *)->
-               let Fname_Name (Name fn) = fn.value in
-               functions_counter#add filename "";
-               (*FIXME: (pp_shell_repr pp_function_definition fd); *)
-               self#begin_function fn;
-               (
-                 try
-                   dep_graph := SGraph.add_vertice !dep_graph fn;
-                   Hashtbl.add functions_tbl fn fb
-                 with
-                   SGraph.VerticeExists ->
-                   Format.fprintf
-                     ppf_duplicates
-                     "- %s\n  - '%s' is defined more than once@." filename fn;
-                   if fb = Hashtbl.find functions_tbl fn then
-                     Format.fprintf
-                       ppf_duplicates
-                       "    - and with the same body@."
-               );
-               self#visit_function_body' venv fb;
-               self#end_function fn
+      method! visit_function_definition venv = function
+        | FunctionDefinition_Fname_Lparen_Rparen_LineBreak_FunctionBody
+          (fn, _, fb) (* as fd *)->
+           let Fname_Name (Name fn) = fn.value in
+           functions_counter#add filename "";
+           (*FIXME: (pp_shell_repr pp_function_definition fd); *)
+           self#begin_function fn;
+           (
+             try
+               dep_graph := SGraph.add_vertice !dep_graph fn;
+               Hashtbl.add functions_tbl fn fb
+             with
+               SGraph.VerticeExists ->
+                Format.fprintf
+                  ppf_duplicates
+                  "- %s\n  - '%s' is defined more than once@." filename fn;
+                if fb = Hashtbl.find functions_tbl fn then
+                  Format.fprintf
+                    ppf_duplicates
+                    "    - and with the same body@."
+           );
+           self#visit_function_body' venv fb;
+           self#end_function fn
 
-          method! visit_cmd_word venv = function
-            | CmdWord_Word w ->
-               self#add_edge_to (unWord w.value)
+      method! visit_cmd_word venv = function
+        | CmdWord_Word w ->
+           self#add_edge_to (unWord w.value)
 
-          method! visit_cmd_name venv = function
-            | CmdName_Word w ->
-               self#add_edge_to (unWord w.value)
-        end
-      end
-    in
-    let i = new Counter.iterator' in
-    List.iter (i#visit_complete_command ()) csts;
+      method! visit_cmd_name venv = function
+        | CmdName_Word w ->
+           self#add_edge_to (unWord w.value)
+    end in
+    List.iter (counter#visit_complete_command ()) csts;
     try
-      SGraph.check_acyclic (i#get_dep_graph ())
+      SGraph.check_acyclic (counter#get_dep_graph ())
     with
       SGraph.Cycle ->
       Format.fprintf
@@ -178,7 +173,7 @@ module Self : Analyzer.S = struct
       Format.fprintf
         ppf_cycles
         "#+BEGIN_SRC dot :file %s.png :exports results@.@[<h 2>  " filename;
-      SGraph.print (i#get_dep_graph()) ppf_cycles (fun x -> x);
+      SGraph.print (counter#get_dep_graph()) ppf_cycles (fun x -> x);
       Format.fprintf ppf_cycles "@]#+END_SRC@.@]"
 
   let output_report report =
