@@ -26,6 +26,14 @@ let is_special_builtin s =
              "export"; "readonly"; "return"; "set"; "shift"; "times";
              "trap"; "unset"
            ]
+
+(* return, for a word [w], a list of variable names to which expansion
+of the word [w] possibly makes an assignment (see Section 2.6.2 of
+the POSIX standard. *)
+let assigned_by_word w =
+  let r = Str.regexp "\\${\([^}:=]+:?=[^}]"
+  in ()
+  
            
 module Self : Analyzer.S = struct
 
