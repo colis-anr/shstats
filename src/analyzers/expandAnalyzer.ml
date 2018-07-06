@@ -14,6 +14,7 @@ open Messages
 
 let unWord' {value=word} =
   Libmorbig.CSTHelpers.unWord word
+let unWord word = Libmorbig.CSTHelpers.unWord word
 let unCmdWord' {value=CmdWord_Word word} =
   Libmorbig.CSTHelpers.unWord word.value
                               
@@ -27,6 +28,21 @@ let is_special_builtin s =
              "trap"; "unset"
            ]
 
+(* return, for a word [w], a list of variable names to which expansion
+of the word [w] possibly makes an assignment (see Section 2.6.2 of
+the POSIX standard. *)
+
+let assigned_by_word w =
+  let r = Str.regexp "\\${\\([^}:=]+\\):?=[^}]*}"
+  and s = unWord w
+  in let rec collect_from i =
+       try
+         let _ = Str.search_forward r s i
+         in let first = Str.matched_group 1 s 
+         in first::(collect_from (Str.match_end ()))
+       with Not_found -> []
+     in collect_from 0
+;;
            
 module Self : Analyzer.S = struct
 
@@ -65,6 +81,7 @@ module Self : Analyzer.S = struct
                self#visit_cmd_suffix' fcts suf'
             | SimpleCommand_CmdName nam' ->
                StringSet.empty
+          method! visit_word fcts w = StringSet.of_list (assigned_by_word w)
         end
       in
       effect_collector#visit_complete_command_list
