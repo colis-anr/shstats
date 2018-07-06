@@ -35,7 +35,7 @@ module Self : Analyzer.S = struct
   let corpus_number_variables = ref 0
   and corpus_number_constants = ref 0
   and corpus_scripts_with_variables = ref []
-                                 
+
   let process_script filename csts =
     let identifiers = Hashtbl.create 13 in
     let register_identifier in_complex_context ((Name s) as x) =
@@ -46,60 +46,56 @@ module Self : Analyzer.S = struct
           identifiers x
           (if Hashtbl.mem identifiers x then Variable else Constant)
     in
-    let module Counter = struct
-    class iterator' = object(self)
+    let counter = object (self)
+      inherit [_] Libmorbig.CST.iter as super
 
-	inherit [_] Libmorbig.CST.iter as super
+      val complex_context_level = ref 0 (* Nesting level of complex contexts. *)
 
-	val complex_context_level = ref 0 (* Nesting level of complex contexts. *)
+      method enter_complex_context =
+	incr complex_context_level
 
-	method enter_complex_context =
-	  incr complex_context_level
+      method exit_complex_context =
+	decr complex_context_level
 
-	method exit_complex_context =
-	  decr complex_context_level
+      method on_complex_context f x =
+	self#enter_complex_context;
+	f x;
+	self#exit_complex_context
 
-	method on_complex_context f x =
-	  self#enter_complex_context;
-	  f x;
-	  self#exit_complex_context
+      method is_under_complex_context =
+	!complex_context_level > 0
 
-	method is_under_complex_context =
-	  !complex_context_level > 0
+      method! visit_cmd_prefix () = function
+        | CmdPrefix_IoRedirect _ ->
+	   ()
+	| CmdPrefix_CmdPrefix_IoRedirect (p, _) ->
+	   self#visit_cmd_prefix' () p
+	| CmdPrefix_AssignmentWord aw ->
+           let (v, _) = aw.value in
+	   register_identifier self#is_under_complex_context v
+	| CmdPrefix_CmdPrefix_AssignmentWord (p, aw) ->
+           let (v, _) = aw.value in
+	   self#visit_cmd_prefix' () p;
+	   register_identifier self#is_under_complex_context v
 
-	method! visit_cmd_prefix venv = function
-      | CmdPrefix_IoRedirect _ ->
-	     ()
-	  | CmdPrefix_CmdPrefix_IoRedirect (p, _) ->
-	     self#visit_cmd_prefix' venv p
-	  | CmdPrefix_AssignmentWord aw ->
-             let (v, _) = aw.value in
-	     register_identifier self#is_under_complex_context v
-	  | CmdPrefix_CmdPrefix_AssignmentWord (p, aw) ->
-             let (v, _) = aw.value in
-	     self#visit_cmd_prefix' venv p;
-	     register_identifier self#is_under_complex_context v
-
-	method! visit_compound_command venv = self#on_complex_context (function
-      | CompoundCommand_BraceGroup b ->
-	     self#visit_brace_group' venv b
-	  | CompoundCommand_Subshell s ->
-	     self#visit_subshell' venv s
-	  | CompoundCommand_ForClause f ->
-	     self#visit_for_clause' venv f
-	  | CompoundCommand_CaseClause c ->
-	     self#visit_case_clause' venv c
-	  | CompoundCommand_IfClause i ->
-	     self#visit_if_clause' venv i
-	  | CompoundCommand_WhileClause w ->
-	     self#visit_while_clause' venv w
-	  | CompoundCommand_UntilClause u ->
-	     self#visit_until_clause' venv u
+      method! visit_compound_command () = self#on_complex_context (function
+        | CompoundCommand_BraceGroup b ->
+	   self#visit_brace_group' () b
+	| CompoundCommand_Subshell s ->
+	   self#visit_subshell' () s
+	| CompoundCommand_ForClause f ->
+	   self#visit_for_clause' () f
+	| CompoundCommand_CaseClause c ->
+	   self#visit_case_clause' () c
+	| CompoundCommand_IfClause i ->
+	   self#visit_if_clause' () i
+	| CompoundCommand_WhileClause w ->
+	   self#visit_while_clause' () w
+	| CompoundCommand_UntilClause u ->
+	   self#visit_until_clause' () u
 	)
-    end (* class iterator' = object ... *)
-    end (* module Counter = struct ... *)
-    in
-    List.iter ((new Counter.iterator')#visit_complete_command ()) csts;
+    end in
+    List.iter (counter#visit_complete_command ()) csts;
     let number_variables = ref 0
     and number_constants = ref 0
     in

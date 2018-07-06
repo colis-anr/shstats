@@ -12,7 +12,7 @@ open Libmorbig.CSTHelpers
 open Options
 open Commands
 open Messages
-   
+
 module Self : Analyzer.S = struct
   let name = "structures"
   let options = []
@@ -24,7 +24,7 @@ module Self : Analyzer.S = struct
       val files_counter = ref 0
       val filenames = ref []
       val last_filename = ref ""
-                        
+
       method handle filename (_subtree: 'a) =
         if !last_filename <> filename then
           (
@@ -51,7 +51,7 @@ module Self : Analyzer.S = struct
       val variables_counter = new Counters.occCounter "variables"
       val subshells_counter = new Counters.occCounter "subshells"
       val globs_counter = new Counters.occCounter "globs"
-                            
+
       method count_dollar_in_word filename representation w =
         let string_mem s c =
           try let _ = String.index s c in true
@@ -77,14 +77,14 @@ module Self : Analyzer.S = struct
               (fun _ _ -> ())
         )
           filename representation
-        
+
       method count_dollars_in_wordlist filename representation = function
         | WordList_WordList_Word (wordlist, word) ->
            self#count_dollars_in_wordlist filename representation wordlist.value;
            self#count_dollar_in_word filename representation word.value
         | WordList_Word word ->
            self#count_dollar_in_word filename representation word.value
-                          
+
       method handle filename for_clause =
         super#handle filename for_clause;
         match for_clause with
@@ -98,19 +98,19 @@ module Self : Analyzer.S = struct
         Report.add report
           "** %s\n%d occurrences in %d files\n"
           name !counter !files_counter;
-        
+
         Report.add report
           "*** %d (%f%%) contain a variable\n"
           (variables_counter#n_occurrences())
           (percentage (variables_counter#n_occurrences()) !counter);
         variables_counter#output_occurrences report;
-        
+
         Report.add report
           "*** %d (%f%%) contain a subshell\n"
           (subshells_counter#n_occurrences())
           (percentage (subshells_counter#n_occurrences()) !counter);
         subshells_counter#output_occurrences report;
-        
+
         Report.add report
           "*** %d (%f%%) contain a glob\n"
           (globs_counter#n_occurrences())
@@ -122,7 +122,7 @@ module Self : Analyzer.S = struct
       inherit [case_clause] baseHandler name as super
 
       val dollar1 = ref 0
-            
+
       method handle filename case_clause =
         super#handle filename case_clause;
         match case_clause with
@@ -186,7 +186,7 @@ module Self : Analyzer.S = struct
                 )
              | _ -> ()
            )
-                
+
       method handle filename while_clause =
         super#handle filename while_clause;
         match while_clause with
@@ -200,7 +200,7 @@ module Self : Analyzer.S = struct
   end
 
   type base_handler = If | Subshell | Uppersand | While | Until | Pipe | And | Or | Not
-                 
+
   let base_handlers = [
       If        , new Handler.baseHandler "if"        ;
       Subshell  , new Handler.baseHandler "subshell"  ;
@@ -214,78 +214,74 @@ module Self : Analyzer.S = struct
 
   let get_base_handler name =
     List.assoc name base_handlers
-                 
+
   let for_handler = new Handler.forHandler "for"
   let case_handler = new Handler.caseHandler "case"
   let while_handler = new Handler.whileHandler "while"
-                    
+
   let process_script filename csts =
-    let module Counter =
-      struct
-        class iterator' = object (self)
-	  inherit [_] Libmorbig.CST.iter as super
+    let counter = object (self)
+      inherit [_] Libmorbig.CST.iter as super
 
-          method! visit_and_or venv = function
-            | AndOr_Pipeline p ->
-               self#visit_pipeline' venv p
-            | AndOr_AndOr_AndIf_LineBreak_Pipeline (a, l, p) ->
-               (get_base_handler And)#handle filename ();
-               self#visit_and_or' venv a;
-               self#visit_linebreak' venv l;
-               self#visit_pipeline' venv p
-            | AndOr_AndOr_OrIf_LineBreak_Pipeline (a, l, p) ->
-               (get_base_handler Or)#handle filename ();
-               self#visit_and_or' venv a;
-               self#visit_linebreak' venv l;
-               self#visit_pipeline' venv p
+      method! visit_and_or () = function
+        | AndOr_Pipeline p ->
+           self#visit_pipeline' () p
+        | AndOr_AndOr_AndIf_LineBreak_Pipeline (a, l, p) ->
+           (get_base_handler And)#handle filename ();
+           self#visit_and_or' () a;
+           self#visit_linebreak' () l;
+           self#visit_pipeline' () p
+        | AndOr_AndOr_OrIf_LineBreak_Pipeline (a, l, p) ->
+           (get_base_handler Or)#handle filename ();
+           self#visit_and_or' () a;
+           self#visit_linebreak' () l;
+           self#visit_pipeline' () p
 
-          method! visit_pipeline venv = function
-            | Pipeline_PipeSequence p ->
-               self#visit_pipe_sequence' venv p
-            | Pipeline_Bang_PipeSequence p ->
-               (get_base_handler Not)#handle filename ();
-               self#visit_pipe_sequence' venv p
+      method! visit_pipeline () = function
+        | Pipeline_PipeSequence p ->
+           self#visit_pipe_sequence' () p
+        | Pipeline_Bang_PipeSequence p ->
+           (get_base_handler Not)#handle filename ();
+           self#visit_pipe_sequence' () p
 
-          method! visit_pipe_sequence venv = function
-            | PipeSequence_Command c ->
-               self#visit_command' venv c
-            | PipeSequence_PipeSequence_Pipe_LineBreak_Command (p, l, c) ->
-               (get_base_handler Pipe)#handle filename ();
-               self#visit_pipe_sequence' venv p;
-               self#visit_linebreak' venv l;
-               self#visit_command' venv c
+      method! visit_pipe_sequence () = function
+        | PipeSequence_Command c ->
+           self#visit_command' () c
+        | PipeSequence_PipeSequence_Pipe_LineBreak_Command (p, l, c) ->
+           (get_base_handler Pipe)#handle filename ();
+           self#visit_pipe_sequence' () p;
+           self#visit_linebreak' () l;
+           self#visit_command' () c
 
-          method! visit_compound_command venv = function
-            | CompoundCommand_BraceGroup b ->
-               self#visit_brace_group' venv b
-            | CompoundCommand_Subshell s ->
-               (get_base_handler Subshell)#handle filename ();
-               self#visit_subshell' venv s
-            | CompoundCommand_ForClause f ->
-               for_handler#handle filename f.value;
-               self#visit_for_clause' venv f
-            | CompoundCommand_CaseClause c ->
-               case_handler#handle filename c.value;
-               self#visit_case_clause' venv c
-            | CompoundCommand_IfClause i ->
-               (get_base_handler If)#handle filename ();
-               self#visit_if_clause' venv i
-            | CompoundCommand_WhileClause w ->
-               while_handler#handle filename w.value;
-               self#visit_while_clause' venv w
-            | CompoundCommand_UntilClause u ->
-               (get_base_handler Until)#handle filename ();
-               self#visit_until_clause' venv u
+      method! visit_compound_command () = function
+        | CompoundCommand_BraceGroup b ->
+           self#visit_brace_group' () b
+        | CompoundCommand_Subshell s ->
+           (get_base_handler Subshell)#handle filename ();
+           self#visit_subshell' () s
+        | CompoundCommand_ForClause f ->
+           for_handler#handle filename f.value;
+           self#visit_for_clause' () f
+        | CompoundCommand_CaseClause c ->
+           case_handler#handle filename c.value;
+           self#visit_case_clause' () c
+        | CompoundCommand_IfClause i ->
+           (get_base_handler If)#handle filename ();
+           self#visit_if_clause' () i
+        | CompoundCommand_WhileClause w ->
+           while_handler#handle filename w.value;
+           self#visit_while_clause' () w
+        | CompoundCommand_UntilClause u ->
+           (get_base_handler Until)#handle filename ();
+           self#visit_until_clause' () u
 
-          method! visit_separator_op venv = function
-            | SeparatorOp_Uppersand ->
-               (get_base_handler Uppersand)#handle filename ()
-            | SeparatorOp_Semicolon ->
-               ()
-        end
-      end
-    in
-    List.iter ((new Counter.iterator')#visit_complete_command ()) csts
+      method! visit_separator_op () = function
+        | SeparatorOp_Uppersand ->
+           (get_base_handler Uppersand)#handle filename ()
+        | SeparatorOp_Semicolon ->
+           ()
+    end in
+    List.iter (counter#visit_complete_command ()) csts
 
   let output_report report =
     Report.add report "* Structures\n";
