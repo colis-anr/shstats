@@ -27,13 +27,6 @@ let is_special_builtin s =
              "trap"; "unset"
            ]
 
-(* return, for a word [w], a list of variable names to which expansion
-of the word [w] possibly makes an assignment (see Section 2.6.2 of
-the POSIX standard. *)
-let assigned_by_word w =
-  let r = Str.regexp "\\${\([^}:=]+:?=[^}]"
-  in ()
-  
            
 module Self : Analyzer.S = struct
 
@@ -43,45 +36,47 @@ module Self : Analyzer.S = struct
                                  
   let process_script filename cst =
 
-    let module Effect = struct
-
-        let visible_functions = ref []
-
-        let is_function s = List.mem s (!visible_functions)
-                                     
-        class effect' = object(self)
+    let affected_vars cst =
+      let effect_collector =
+        object(self)
           inherit [_] Libmorbig.CST.reduce as super
           method zero = StringSet.empty
           method plus s1 s2 = StringSet.union s1 s2
-          method! visit_assignment_word _ (name,word) =
-            StringSet.singleton (Libmorbig.CSTHelpers.unName name)
-          method! visit_simple_command env cst = match cst with
+          method! visit_assignment_word (fcts:StringSet.t) (name,word) =
+            self#plus
+              (StringSet.singleton (Libmorbig.CSTHelpers.unName name))
+              (self#visit_word fcts word)
+          method! visit_simple_command fcts cst = match cst with
             | SimpleCommand_CmdPrefix_CmdWord_CmdSuffix (pre',cw',suf') ->
-               if is_function (unCmdWord' cw')
+               if StringSet.mem (unCmdWord' cw') fcts
                   || is_special_builtin (unCmdWord' cw')
                then self#plus
-                      (self#visit_cmd_suffix' env suf')
-                      (self#visit_cmd_prefix' env pre')
-               else self#visit_cmd_suffix' env suf'
+                      (self#visit_cmd_suffix' fcts suf')
+                      (self#visit_cmd_prefix' fcts pre')
+               else self#visit_cmd_suffix' fcts suf'
             | SimpleCommand_CmdPrefix_CmdWord (pre',cw') ->
-               if is_function (unCmdWord' cw')
+               if StringSet.mem (unCmdWord' cw') fcts
                   || is_special_builtin (unCmdWord' cw')
-               then self#visit_cmd_prefix' env pre'
+               then self#visit_cmd_prefix' fcts pre'
                else StringSet.empty
             | SimpleCommand_CmdPrefix pre' ->
-               self#visit_cmd_prefix' env pre'
+               self#visit_cmd_prefix' fcts pre'
             | SimpleCommand_CmdName_CmdSuffix (nam',suf') ->
-               self#visit_cmd_suffix' env suf'
+               self#visit_cmd_suffix' fcts suf'
             | SimpleCommand_CmdName nam' ->
                StringSet.empty
-        end                
-    end
+        end
+      in
+      effect_collector#visit_complete_command_list
+        StringSet.empty
+        cst
+
     in
     let cout = open_out (filename^".vars")
     in begin
         StringSet.iter
           (function s -> Printf.fprintf cout "%s\n" s)
-          ((new Effect.effect')#visit_complete_command_list [] cst);
+          (affected_vars cst);
         close_out cout
       end
 
