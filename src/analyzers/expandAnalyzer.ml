@@ -44,25 +44,35 @@ let assigned_by_word w =
      in collect_from 0
 ;;
 
-module E = struct
-  type t = {
-      env: (string*string) list;
-      touched: StringSet.t;
-      fncts: (string*t) list
-    }
-(* a value of type [t] is an approximation of the effect of executing a
+module Mon = struct
+(* a value of type [t] is an over-approximation of the effect of executing a
    piece of code in a given environment:
-   - [env] is a variable environment that maps names of variables to ground
-     (i.e., invariant under expansion) strings. We are sure that after execution
-     of the code we obtain at least these bindings. 
-   - [touched] is a set of variables. This is an overapproximation of the set
-     set of varaibles thate a piece of code might asign to.
+   - [vars] is a set of variables. This is an overapproximation of the set
+     of varaibles that a piece of code might asign to.
    - [fncts] is a mapping. Its domain is the set of functions that might be
-     defined by the execution of the code. The functiosn asigns to each of
-     these names of functions the effect of involing it.
-   Type invariants:
-     - [domain(env) \subseteq touched]
+     defined by the execution of the code. The mapping assigns to each of
+     these names of functions the effect of involving it.
  *)
+  type t = {
+      vars: StringSet.t;
+      fncts: fenv
+    }
+   and fenv = (string*t) list
+  let zero = (StringSet.empty, [])
+  let from_var x = {vars=StringSet.singleton x;fncts=[]}
+  let from_varlist l =  {vars=StringSet.of_list l,fncts=[]}
+  (* the [plus] of two values of type [t] is defined as the respective
+      unions of their [vars] and their [fncts]. If a function name
+      is defined in both then we recursively compute the [plus] of the
+      associated values. *)  
+  let rec plus {vars=t1;fncts=f1} {vars=t2;fncts=f2} =
+    {vars = StringSet.union t1 t2;
+     fncts = 
+       let f12,f1o = List.partition (function f,_ -> List.mem_assoc f f2) f1
+       and f21,f2o = List.partition (function f,_ -> List.mem_assoc f f1) f2
+       in f1o@f2o@
+            (List.map (function (f,i) -> (f, plus i (List.assoc f f21))) f12)
+    }
 end
            
 module Self : Analyzer.S = struct
@@ -77,18 +87,11 @@ module Self : Analyzer.S = struct
       let effect_collector =
         object(self)
           inherit [_] Libmorbig.CST.reduce as super
-          (* the monoid of the reduce part is the monoid of pairs
-             of strings of sets. If [cst] reduces to the pair [(v,f)]
-             then [v] is the set of variables that might have been
-             assigned to by [cst], and [f] is the set of functions
-             that might have been defined by the execution of [cst]. *)
-          method zero = (StringSet.empty,StringSet.empty)
-          method plus (v1,f1) (v2,f2) =
-            (StringSet.union v1 v2, StringSet.union f1 f2)
-          method! visit_assignment_word (fcts:StringSet.t) (name,word) =
+          method zero = Mon.zero
+          method plus x y = Mon.plus x y
+          method! visit_assignment_word (fcts:Mon.fenv) (name,word) =
             self#plus
-              (StringSet.singleton (Libmorbig.CSTHelpers.unName name),
-               StringSet.empty)
+              (Mon.from_var (Libmorbig.CSTHelpers.unName name))
               (self#visit_word fcts word)
           method! visit_simple_command fcts cst = match cst with
             | SimpleCommand_CmdPrefix_CmdWord_CmdSuffix (pre',cw',suf') ->
@@ -109,9 +112,8 @@ module Self : Analyzer.S = struct
                self#visit_cmd_suffix' fcts suf'
             | SimpleCommand_CmdName nam' ->
                self#zero
-          method! visit_word fcts w =
-            (StringSet.of_list (assigned_by_word w),
-             StringSet.empty)
+          method! visit_word fcts w = Mon.from_varlist (assigned_by_word w)
+           
         end
       in
       effect_collector#visit_complete_command_list
