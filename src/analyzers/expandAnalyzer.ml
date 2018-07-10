@@ -31,7 +31,6 @@ let is_special_builtin s =
 (* return, for a word [w], a list of variable names to which expansion
 of the word [w] possibly makes an assignment (see Section 2.6.2 of
 the POSIX standard. *)
-
 let assigned_by_word w =
   let r = Str.regexp "\\${\\([^}:=]+\\):?=[^}]*}"
   and s = unWord w
@@ -48,7 +47,7 @@ module Mon = struct
 (* a value of type [t] is an over-approximation of the effect of executing a
    piece of code in a given environment:
    - [vars] is a set of variables. This is an overapproximation of the set
-     of varaibles that a piece of code might asign to.
+     of variables that a piece of code might asign to.
    - [fncts] is a mapping. Its domain is the set of functions that might be
      defined by the execution of the code. The mapping assigns to each of
      these names of functions the effect of involving it.
@@ -58,9 +57,9 @@ module Mon = struct
       fncts: fenv
     }
    and fenv = (string*t) list
-  let zero = (StringSet.empty, [])
-  let from_var x = {vars=StringSet.singleton x;fncts=[]}
-  let from_varlist l =  {vars=StringSet.of_list l,fncts=[]}
+  let zero = {vars=StringSet.empty; fncts= []}
+  let from_var x = {vars=StringSet.singleton x; fncts=[]}
+  let from_varlist l =  {vars=StringSet.of_list l; fncts=[]}
   (* the [plus] of two values of type [t] is defined as the respective
       unions of their [vars] and their [fncts]. If a function name
       is defined in both then we recursively compute the [plus] of the
@@ -95,14 +94,14 @@ module Self : Analyzer.S = struct
               (self#visit_word fcts word)
           method! visit_simple_command fcts cst = match cst with
             | SimpleCommand_CmdPrefix_CmdWord_CmdSuffix (pre',cw',suf') ->
-               if StringSet.mem (unCmdWord' cw') fcts
+               if List.mem_assoc (unCmdWord' cw') fcts
                   || is_special_builtin (unCmdWord' cw')
                then self#plus
                       (self#visit_cmd_suffix' fcts suf')
                       (self#visit_cmd_prefix' fcts pre')
                else self#visit_cmd_suffix' fcts suf'
             | SimpleCommand_CmdPrefix_CmdWord (pre',cw') ->
-               if StringSet.mem (unCmdWord' cw') fcts
+               if List.mem_assoc (unCmdWord' cw') fcts
                   || is_special_builtin (unCmdWord' cw')
                then self#visit_cmd_prefix' fcts pre'
                else self#zero
@@ -116,16 +115,14 @@ module Self : Analyzer.S = struct
            
         end
       in
-      effect_collector#visit_complete_command_list
-        StringSet.empty
-        cst
+      (effect_collector#visit_complete_command_list [] cst).vars
 
     in
     let cout = open_out (filename^".vars")
     in begin
         StringSet.iter
           (function s1 -> Printf.fprintf cout "%s\n" s1)
-          (fst (affected_vars cst));
+          (affected_vars cst);
         close_out cout
       end
 
