@@ -43,6 +43,10 @@ let assigned_by_word w =
      in collect_from 0
 ;;
 
+(* check whether [s] is (possibly) the name of a variable *)
+let is_variable s =
+  String.length s > 1 && String.get s 0 = '$'
+
 module Mon = struct
 (* a value of type [t] is an over-approximation of the effect of executing a
    piece of code in a given environment:
