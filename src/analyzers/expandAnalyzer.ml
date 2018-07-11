@@ -14,9 +14,14 @@ open Messages
 
 let unWord' {value=word} =
   Libmorbig.CSTHelpers.unWord word
-let unWord word = Libmorbig.CSTHelpers.unWord word
 let unCmdWord' {value=CmdWord_Word word} =
   Libmorbig.CSTHelpers.unWord word.value
+let unWord word = Libmorbig.CSTHelpers.unWord word
+let unName' {value=name} =
+  Libmorbig.CSTHelpers.unName name
+let unCmdName' {value=CmdName_Word word} =
+  Libmorbig.CSTHelpers.unWord word.value
+let unName name = Libmorbig.CSTHelpers.unName name
                               
 module StringSet = Set.Make(String)
 
@@ -78,6 +83,7 @@ module Mon = struct
   let from_varlist l =  {vars=StringSet.of_list l; fncts=[]}
   let merge_functions effect fncts =
     List.fold_left (fun m (f,i) -> plus m i) effect fncts
+  let from_function name effect = {vars=StringSet.empty; fncts=[(name,effect)]}
       
 end
            
@@ -95,59 +101,73 @@ module Self : Analyzer.S = struct
           inherit [_] Libmorbig.CST.reduce as super
           method zero = Mon.zero
           method plus x y = Mon.plus x y
+
           method! visit_assignment_word (fcts:Mon.fenv) (name,word) =
             self#plus
               (Mon.from_var (Libmorbig.CSTHelpers.unName name))
               (self#visit_word fcts word)
+
+          method visit_simple_command_any fcts pre_effect cmd suf_effect =
+            let presuf_effect = self#plus pre_effect suf_effect 
+            in
+            if is_expandable cmd
+            then
+              (* [cmd] might be expanded to anything: to a function or
+                 special builtin, or somthing else. So we assume the
+                 worst: it is some function among the ones in [fncts].
+                 This means that we have to compute the union of the 
+                 effect of all top-level functions ins [fncts], and also
+                 take the effect of the command prefix into account. *)
+              Mon.merge_functions presuf_effect fcts
+            else if List.mem_assoc cmd fcts
+            then
+              (* [cmd] is a call to a known function: we take the effect of
+                 that function, plus the command prefix and suffix. *)
+              self#plus presuf_effect (List.assoc cmd fcts)
+            else if is_special_builtin cmd
+            then
+              (* [cmd] is a special builtin: we have to take the effects of
+                 command prefix and suffix into account. *)
+              presuf_effect
+            else
+              (* [cmd] must be the creation of a process, that is the
+                 assignement in the prefix is local to the process. *)
+              suf_effect
+                   
           method! visit_simple_command fcts = function
             | SimpleCommand_CmdPrefix_CmdWord_CmdSuffix (pre',cw',suf') ->
                let cmd = UnQuote.on_string (unCmdWord' cw')
-               and prefix_effect = self#visit_cmd_prefix' fcts pre'
-               and suffix_effect = self#visit_cmd_suffix' fcts suf' 
-               in let presuf_effect = self#plus prefix_effect suffix_effect 
-               in
-               if is_expandable cmd
-               then
-                 (* [cmd] might be expanded to anything: to a function or
-                     special builtin, so we have to take the effect of the
-                     prefix into account, and it might even be one of the
-                     currently visible functions. *)
-                 Mon.merge_functions presuf_effect fcts
-               else if List.mem_assoc cmd fcts
-               then
-                 (* call to a known function *)
-                 self#plus presuf_effect (List.assoc cmd fcts)
-               else if is_special_builtin cmd
-               then presuf_effect
-               else (* creation of a process *)
-                 suffix_effect
+               and pre_effect = self#visit_cmd_prefix' fcts pre'
+               and suf_effect = self#visit_cmd_suffix' fcts suf' 
+               in self#visit_simple_command_any
+                    fcts pre_effect cmd suf_effect
             | SimpleCommand_CmdPrefix_CmdWord (pre',cw') ->
                let cmd = UnQuote.on_string (unCmdWord' cw')
-               and prefix_effect = self#visit_cmd_prefix' fcts pre'
-               in
-               if is_expandable cmd
-               then
-                 (* [cmd] might be expanded to anything: to a function or
-                     special buildin, so we have the effect of the prefix
-                     into account, and it might even be one of the currently
-                     visible functions. *)
-                 Mon.merge_functions prefix_effect fcts
-               else if List.mem_assoc cmd fcts
-               then
-                 (* call to a known function *)
-                 self#plus prefix_effect (List.assoc cmd fcts)
-               else if is_special_builtin cmd
-               then prefix_effect
-               else (* creation of a process *)
-                 self#zero
+               and pre_effect = self#visit_cmd_prefix' fcts pre'
+               in self#visit_simple_command_any
+                    fcts pre_effect cmd self#zero
             | SimpleCommand_CmdPrefix pre' ->
                self#visit_cmd_prefix' fcts pre'
             | SimpleCommand_CmdName_CmdSuffix (nam',suf') ->
-               self#visit_cmd_suffix' fcts suf'
+               let cmd = UnQuote.on_string (unCmdName' nam')
+               and suf_effect = self#visit_cmd_suffix' fcts suf' 
+               in self#visit_simple_command_any
+                    fcts self#zero cmd suf_effect
             | SimpleCommand_CmdName nam' ->
-               self#zero
+               let cmd = UnQuote.on_string (unCmdName' nam')
+               in self#visit_simple_command_any
+                    fcts self#zero cmd self#zero
+
           method! visit_word fcts w = Mon.from_varlist (assigned_by_word w)
-           
+
+          method! visit_function_definition fcts = function
+            | FunctionDefinition_Fname_Lparen_Rparen_LineBreak_FunctionBody
+              ({value=Fname_Name fname}, _linebreak',fbody') ->
+               Mon.from_function
+                 (unName fname)
+                 (self#visit_function_body' fcts fbody')
+
+                 (* TODO : local variables of functions *)
         end
       in
       (effect_collector#visit_complete_command_list [] cst).Mon.vars
