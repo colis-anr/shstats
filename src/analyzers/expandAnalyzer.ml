@@ -72,21 +72,29 @@ module Mon = struct
       is defined in both then we recursively compute the [plus] of the
       associated values. *)  
   let rec plus {vars=t1;fncts=f1} {vars=t2;fncts=f2} =
-    {vars = StringSet.union t1 t2;
-     fncts = 
-       let f12,f1o = List.partition (function f,_ -> List.mem_assoc f f2) f1
-       and f21,f2o = List.partition (function f,_ -> List.mem_assoc f f1) f2
-       in f1o@f2o@
-            (List.map (function (f,i) -> (f, plus i (List.assoc f f21))) f12)
-    }
+    {vars = StringSet.union t1 t2; fncts = fncts_plus f1 f2}
+  and fncts_plus f1 f2 =
+    let f12,f1o = List.partition (function f,_ -> List.mem_assoc f f2) f1
+    and f21,f2o = List.partition (function f,_ -> List.mem_assoc f f1) f2
+    in f1o@f2o@(List.map (function (f,i) -> (f, plus i (List.assoc f f21))) f12)
   let from_var x = {vars=StringSet.singleton x; fncts=[]}
   let from_varlist l =  {vars=StringSet.of_list l; fncts=[]}
-  let merge_functions effect fncts =
+  let mergein_onelevel_functions effect fncts =
     List.fold_left (fun m (f,i) -> plus m i) effect fncts
   let from_function name effect = {vars=StringSet.empty; fncts=[(name,effect)]}
-      
+
+  let rec to_string {vars=vars;fncts=fncts} =
+    "{" ^ (StringSet.fold (fun s accu-> s^","^accu) vars "}") ^"\n" ^
+      (List.fold_right
+         (fun (funname,funeffect) accu ->
+           "["^funname^"|->"^(to_string  funeffect)^"]\n"^ accu)
+         fncts
+         ""
+      )
 end
-           
+
+let debug s = Printf.printf "DEB: %s\n" s
+                                           
 module Self : Analyzer.S = struct
 
   let options = []
@@ -118,7 +126,7 @@ module Self : Analyzer.S = struct
                  This means that we have to compute the union of the 
                  effect of all top-level functions ins [fncts], and also
                  take the effect of the command prefix into account. *)
-              Mon.merge_functions presuf_effect fcts
+              Mon.mergein_onelevel_functions presuf_effect fcts
             else if List.mem_assoc cmd fcts
             then
               (* [cmd] is a call to a known function: we take the effect of
@@ -167,7 +175,22 @@ module Self : Analyzer.S = struct
                  (unName fname)
                  (self#visit_function_body' fcts fbody')
 
-                 (* TODO : local variables of functions *)
+          (* TODO : local variables of functions *)
+
+         (* here is where we are deviating from the reduce scheme : in case
+            of a complete command list we pass the function part of the
+            computed effect of the first complete command on to
+            compute the environment for the rest of the complete
+            command list.
+          *)
+          method! visit_complete_command_list fcts = function
+            | [] -> Mon.zero
+            | h::r ->
+               let heffect = self#visit_complete_command fcts h
+               in let reffect = self#visit_complete_command_list
+                                   (Mon.fncts_plus fcts heffect.Mon.fncts) r
+                  in Mon.plus heffect reffect
+
         end
       in
       (effect_collector#visit_complete_command_list [] cst).Mon.vars
