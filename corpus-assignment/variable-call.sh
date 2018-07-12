@@ -1,4 +1,5 @@
 f () {
+	y=7
 	echo "this is f"
 }
 

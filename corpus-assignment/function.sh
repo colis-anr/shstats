@@ -2,6 +2,7 @@
 
 f () {
 	x='set by f'
+	y=42
 }
 
 x='set at toplevel'
