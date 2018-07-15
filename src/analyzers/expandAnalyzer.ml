@@ -52,15 +52,15 @@ let assigned_by_word w =
 expansion *)
 let is_expandable s = String.contains s '$' || String.contains s '`'
 
-module Mon = struct
-(* a value of type [t] is an over-approximation of the effect of executing a
+module Ef = struct
+  (* a value of type [t] is an over-approximation of the effect of executing a
    piece of code in a given environment:
    - [vars] is a set of variables. This is an overapproximation of the set
      of variables that a piece of code might asign to.
    - [fncts] is a mapping. Its domain is the set of functions that might be
      defined by the execution of the code. The mapping assigns to each of
      these names of functions the effect of involving it.
- *)
+   *)
   type t = {
       vars: StringSet.t;
       fncts: fenv
@@ -106,17 +106,21 @@ module Self : Analyzer.S = struct
     let affected_vars cst =
       let effect_collector =
         object(self)
-          inherit [_] Libmorbig.CST.reduce as super
-          method zero = Mon.zero
-          method plus x y = Mon.plus x y
+          inherit [_] Libmorbig.CST.mapreduce as super
+          method zero = Ef.zero
+          method plus x y = Ef.plus x y
 
-          method! visit_assignment_word (fcts:Mon.fenv) (name,word) =
-            self#plus
-              (Mon.from_var (Libmorbig.CSTHelpers.unName name))
-              (self#visit_word fcts word)
+          method! visit_assignment_word (fcts:Ef.fenv) (name,word) =
+            (
+              (name,word)
+            ,
+              self#plus
+              (Ef.from_var (Libmorbig.CSTHelpers.unName name))
+              (snd (self#visit_word fcts word))
+            )
 
-          method visit_simple_command_any fcts pre_effect cmd suf_effect =
-            let presuf_effect = self#plus pre_effect suf_effect 
+          method effect_of_simple_command fcts pre_effect cmd suf_effect =
+            let presuf_effect = self#plus pre_effect suf_effect
             in
             if is_expandable cmd
             then
@@ -126,7 +130,7 @@ module Self : Analyzer.S = struct
                  This means that we have to compute the union of the 
                  effect of all top-level functions ins [fncts], and also
                  take the effect of the command prefix into account. *)
-              Mon.mergein_onelevel_functions presuf_effect fcts
+              Ef.mergein_onelevel_functions presuf_effect fcts
             else if List.mem_assoc cmd fcts
             then
               (* [cmd] is a call to a known function: we take the effect of
@@ -142,38 +146,63 @@ module Self : Analyzer.S = struct
                  assignement in the prefix is local to the process. *)
               suf_effect
                    
-          method! visit_simple_command fcts = function
+          method! visit_simple_command fcts cst = match cst with
             | SimpleCommand_CmdPrefix_CmdWord_CmdSuffix (pre',cw',suf') ->
-               let cmd = UnQuote.on_string (unCmdWord' cw')
-               and pre_effect = self#visit_cmd_prefix' fcts pre'
-               and suf_effect = self#visit_cmd_suffix' fcts suf' 
-               in self#visit_simple_command_any
-                    fcts pre_effect cmd suf_effect
+               let pre_effect = snd (self#visit_cmd_prefix' fcts pre')
+               and suf_effect = snd (self#visit_cmd_suffix' fcts suf' )
+               and cmd = UnQuote.on_string (unCmdWord' cw')
+               in
+               (
+                 cst
+               ,
+                 self#effect_of_simple_command fcts pre_effect cmd suf_effect
+               )
             | SimpleCommand_CmdPrefix_CmdWord (pre',cw') ->
                let cmd = UnQuote.on_string (unCmdWord' cw')
-               and pre_effect = self#visit_cmd_prefix' fcts pre'
-               in self#visit_simple_command_any
-                    fcts pre_effect cmd self#zero
+               and pre_effect = snd (self#visit_cmd_prefix' fcts pre')
+               in
+               (
+                 cst
+               ,
+                 self#effect_of_simple_command fcts pre_effect cmd self#zero
+               )
             | SimpleCommand_CmdPrefix pre' ->
-               self#visit_cmd_prefix' fcts pre'
+               (
+                 SimpleCommand_CmdPrefix pre'
+               ,
+                 snd (self#visit_cmd_prefix' fcts pre')
+               )
             | SimpleCommand_CmdName_CmdSuffix (nam',suf') ->
                let cmd = UnQuote.on_string (unCmdName' nam')
-               and suf_effect = self#visit_cmd_suffix' fcts suf' 
-               in self#visit_simple_command_any
-                    fcts self#zero cmd suf_effect
+               and suf_effect = snd (self#visit_cmd_suffix' fcts suf')
+               in
+               (
+                 SimpleCommand_CmdName_CmdSuffix (nam',suf')
+               ,
+                 self#effect_of_simple_command fcts self#zero cmd suf_effect
+               )
             | SimpleCommand_CmdName nam' ->
                let cmd = UnQuote.on_string (unCmdName' nam')
-               in self#visit_simple_command_any
-                    fcts self#zero cmd self#zero
+               in
+               (
+                 cst
+               ,
+                 self#effect_of_simple_command fcts self#zero cmd self#zero
+               )
 
-          method! visit_word fcts w = Mon.from_varlist (assigned_by_word w)
+          method! visit_word fcts w =
+            (w, Ef.from_varlist (assigned_by_word w))
 
-          method! visit_function_definition fcts = function
+          method! visit_function_definition fcts cst = match cst with
             | FunctionDefinition_Fname_Lparen_Rparen_LineBreak_FunctionBody
               ({value=Fname_Name fname}, _linebreak',fbody') ->
-               Mon.from_function
-                 (unName fname)
-                 (self#visit_function_body' fcts fbody')
+               (
+                 cst
+               ,
+                 Ef.from_function
+                   (unName fname)
+                   (snd (self#visit_function_body' fcts fbody'))
+               )
 
           (* TODO : local variables of functions *)
 
@@ -184,16 +213,22 @@ module Self : Analyzer.S = struct
             command list.
           *)
           method! visit_complete_command_list fcts = function
-            | [] -> Mon.zero
+            | [] -> ([], Ef.zero)
             | h::r ->
-               let heffect = self#visit_complete_command fcts h
-               in let reffect = self#visit_complete_command_list
-                                   (Mon.fncts_plus fcts heffect.Mon.fncts) r
-                  in Mon.plus heffect reffect
+               let hvisited = self#visit_complete_command fcts h
+               in let rvisited = self#visit_complete_command_list
+                                   (Ef.fncts_plus fcts
+                                      (snd hvisited).Ef.fncts) r
+                  in
+                  (
+                    (fst hvisited)::(fst rvisited)
+                  ,
+                    Ef.plus (snd hvisited) (snd rvisited)
+                  )
 
         end
       in
-      (effect_collector#visit_complete_command_list [] cst).Mon.vars
+      (snd (effect_collector#visit_complete_command_list [] cst)).Ef.vars
 
     in
     let cout = open_out (filename^".vars")
