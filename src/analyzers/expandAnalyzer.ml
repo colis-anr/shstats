@@ -23,8 +23,6 @@ let unCmdName' {value=CmdName_Word word} =
   Libmorbig.CSTHelpers.unWord word.value
 let unName name = Libmorbig.CSTHelpers.unName name
                               
-module StringSet = Set.Make(String)
-
 let is_special_builtin s =
   List.mem s
            [
@@ -55,40 +53,63 @@ let is_expandable s = String.contains s '$' || String.contains s '`'
 module Ef = struct
   (* a value of type [t] is an over-approximation of the effect of executing a
    piece of code in a given environment:
-   - [vars] is a set of variables. This is an overapproximation of the set
+   - [var] is a set of variables. This is an overapproximation of the set
      of variables that a piece of code might asign to.
-   - [fncts] is a mapping. Its domain is the set of functions that might be
+   - [fns] is a mapping. Its domain is the set of functions that might be
      defined by the execution of the code. The mapping assigns to each of
      these names of functions the effect of involving it.
    *)
-  type t = {
-      vars: StringSet.t;
-      fncts: fenv
+  module StringSet = Set.Make(String)
+  module StringMap = Map.Make(String)
+  type effect = {
+      vef: StringSet.t;
+      fef: fenvironment
     }
-   and fenv = (string*t) list
-  let zero = {vars=StringSet.empty; fncts= []}
-  (* the [plus] of two values of type [t] is defined as the respective
-      unions of their [vars] and their [fncts]. If a function name
-      is defined in both then we recursively compute the [plus] of the
+  and fenvironment = (string*effect) list
+  and environment = {
+      venv: string StringMap.t;
+      fenv: fenvironment
+    }
+  and monoid = {
+      tres: StringSet.t;
+      vres: string StringMap.t;
+      fres: fenvironment
+    }
+             
+  let zero =
+    {
+      tres = StringMap.empty;
+      vres = StringSet.empty;
+      fef= []
+    }
+  (* the [plus] of two values of type [effect] is defined as the respective
+      unions of their [vef] and their [fef]. If a function name
+      is defined in both then we recursive   ly compute the [plus] of the
       associated values. *)  
-  let rec plus {vars=t1;fncts=f1} {vars=t2;fncts=f2} =
-    {vars = StringSet.union t1 t2; fncts = fncts_plus f1 f2}
-  and fncts_plus f1 f2 =
+  let rec plus r1 r2 = {
+      tres = StringSet.union r1.tres r2.tres;
+      vres = StringMap.empty;
+      fef = plus_fenvironment r1.fres r2.fres
+    }
+  and plus_fenvironment f1 f2 =
     let f12,f1o = List.partition (function f,_ -> List.mem_assoc f f2) f1
     and f21,f2o = List.partition (function f,_ -> List.mem_assoc f f1) f2
-    in f1o@f2o@(List.map (function (f,i) -> (f, plus i (List.assoc f f21))) f12)
-  let from_var x = {vars=StringSet.singleton x; fncts=[]}
-  let from_varlist l =  {vars=StringSet.of_list l; fncts=[]}
-  let mergein_onelevel_functions effect fncts =
-    List.fold_left (fun m (f,i) -> plus m i) effect fncts
-  let from_function name effect = {vars=StringSet.empty; fncts=[(name,effect)]}
+    in f1o@f2o@(List.map
+                  (function (f,i) ->
+                     (f, plus_effect i (List.assoc f f21))) f12)
+     
+  let from_var x = {vef=StringSet.singleton x; fef=[]}
+  let from_varlist l =  {vef=StringSet.of_list l; fef=[]}
+  let mergein_onelevel_functions effect fns =
+    List.fold_left (fun m (f,i) -> plus_effect m i) effect fns
+  let from_function name effect = {vef=StringSet.empty; fef=[(name,effect)]}
 
-  let rec to_string {vars=vars;fncts=fncts} =
-    "{" ^ (StringSet.fold (fun s accu-> s^","^accu) vars "}") ^"\n" ^
+  let rec to_string e =
+    "{" ^ (StringSet.fold (fun s accu-> s^","^accu) e.vef "}") ^"\n" ^
       (List.fold_right
          (fun (funname,funeffect) accu ->
            "["^funname^"|->"^(to_string  funeffect)^"]\n"^ accu)
-         fncts
+         e.fef
          ""
       )
 end
@@ -107,28 +128,29 @@ module Self : Analyzer.S = struct
       let effect_collector =
         object(self)
           inherit [_] Libmorbig.CST.mapreduce as super
-          method zero = Ef.zero
-          method plus x y = Ef.plus x y
+          method zero = Ef.zero_effect
+          method plus x y = Ef.plus_effect x y
 
-          method! visit_assignment_word (fcts:Ef.fenv) (name,word) =
+          method! visit_assignment_word (env: Ef.environment) (name,word) =
             (
               (name,word)
             ,
               self#plus
               (Ef.from_var (Libmorbig.CSTHelpers.unName name))
-              (snd (self#visit_word fcts word))
+              (snd (self#visit_word env word))
             )
 
-          method effect_of_simple_command fcts pre_effect cmd suf_effect =
+          method effect_of_simple_command env pre_effect cmd suf_effect =
             let presuf_effect = self#plus pre_effect suf_effect
+            and fcts = env.Ef.fenv
             in
             if is_expandable cmd
             then
               (* [cmd] might be expanded to anything: to a function or
                  special builtin, or somthing else. So we assume the
-                 worst: it is some function among the ones in [fncts].
+                 worst: it is some function among the ones in [fns].
                  This means that we have to compute the union of the 
-                 effect of all top-level functions ins [fncts], and also
+                 effect of all top-level functions ins [fns], and also
                  take the effect of the command prefix into account. *)
               Ef.mergein_onelevel_functions presuf_effect fcts
             else if List.mem_assoc cmd fcts
@@ -146,40 +168,40 @@ module Self : Analyzer.S = struct
                  assignement in the prefix is local to the process. *)
               suf_effect
                    
-          method! visit_simple_command fcts cst = match cst with
+          method! visit_simple_command env cst = match cst with
             | SimpleCommand_CmdPrefix_CmdWord_CmdSuffix (pre',cw',suf') ->
-               let pre_effect = snd (self#visit_cmd_prefix' fcts pre')
-               and suf_effect = snd (self#visit_cmd_suffix' fcts suf' )
+               let pre_effect = snd (self#visit_cmd_prefix' env pre')
+               and suf_effect = snd (self#visit_cmd_suffix' env suf' )
                and cmd = UnQuote.on_string (unCmdWord' cw')
                in
                (
                  cst
                ,
-                 self#effect_of_simple_command fcts pre_effect cmd suf_effect
+                 self#effect_of_simple_command env pre_effect cmd suf_effect
                )
             | SimpleCommand_CmdPrefix_CmdWord (pre',cw') ->
                let cmd = UnQuote.on_string (unCmdWord' cw')
-               and pre_effect = snd (self#visit_cmd_prefix' fcts pre')
+               and pre_effect = snd (self#visit_cmd_prefix' env pre')
                in
                (
                  cst
                ,
-                 self#effect_of_simple_command fcts pre_effect cmd self#zero
+                 self#effect_of_simple_command env pre_effect cmd self#zero
                )
             | SimpleCommand_CmdPrefix pre' ->
                (
                  SimpleCommand_CmdPrefix pre'
                ,
-                 snd (self#visit_cmd_prefix' fcts pre')
+                 snd (self#visit_cmd_prefix' env pre')
                )
             | SimpleCommand_CmdName_CmdSuffix (nam',suf') ->
                let cmd = UnQuote.on_string (unCmdName' nam')
-               and suf_effect = snd (self#visit_cmd_suffix' fcts suf')
+               and suf_effect = snd (self#visit_cmd_suffix' env suf')
                in
                (
                  SimpleCommand_CmdName_CmdSuffix (nam',suf')
                ,
-                 self#effect_of_simple_command fcts self#zero cmd suf_effect
+                 self#effect_of_simple_command env self#zero cmd suf_effect
                )
             | SimpleCommand_CmdName nam' ->
                let cmd = UnQuote.on_string (unCmdName' nam')
@@ -187,7 +209,7 @@ module Self : Analyzer.S = struct
                (
                  cst
                ,
-                 self#effect_of_simple_command fcts self#zero cmd self#zero
+                 self#effect_of_simple_command env self#zero cmd self#zero
                )
 
           method! visit_word fcts w =
@@ -212,13 +234,13 @@ module Self : Analyzer.S = struct
             compute the environment for the rest of the complete
             command list.
           *)
-          method! visit_complete_command_list fcts = function
-            | [] -> ([], Ef.zero)
+          method! visit_complete_command_list env = function
+            | [] -> ([], Ef.zero_effect)
             | h::r ->
-               let hvisited = self#visit_complete_command fcts h
+               let hvisited = self#visit_complete_command env h
                in let rvisited = self#visit_complete_command_list
-                                   (Ef.fncts_plus fcts
-                                      (snd hvisited).Ef.fncts) r
+                                   (Ef.fns_plus env.Ef.fenv
+                                      (snd hvisited).Ef.fef) r
                   in
                   (
                     (fst hvisited)::(fst rvisited)
@@ -228,14 +250,12 @@ module Self : Analyzer.S = struct
 
         end
       in
-      (snd (effect_collector#visit_complete_command_list [] cst)).Ef.vars
+      snd (effect_collector#visit_complete_command_list [] cst)
 
     in
-    let cout = open_out (filename^".vars")
+    let cout = open_out (filename^".var")
     in begin
-        StringSet.iter
-          (function s1 -> Printf.fprintf cout "%s\n" s1)
-          (affected_vars cst);
+        Printf.fprintf cout "%s\n" (Ef.to_string (affected_vars cst));
         close_out cout
       end
 
