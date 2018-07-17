@@ -53,6 +53,38 @@ let is_expandable s = String.contains s '$' || String.contains s '`'
 module StringMap = Map.Make(String)
 module StringSet = Set.Make(String)
 
+module StringTopSet = struct
+  (* module implementing finite sets of strings, plus one top element
+     representing the set of all strings.
+   *)
+  type t =
+    | All                      (* set of all strings *)
+    | Finite of StringSet.t   (* finite set of strings *)
+
+  let empty = Finite StringSet.empty
+
+  let all = All
+
+  let singleton x = Finite (StringSet.singleton x)
+
+  let of_list l = Finite (StringSet.of_list l)
+                
+  let union vs1 vs2 = match vs1 with
+    | All -> All
+    | Finite s1 -> match vs2 with
+                    | All -> All
+                    | Finite s2 -> Finite (StringSet.union s1 s2)
+
+  let mem x = function
+    | All -> true
+    | Finite s -> StringSet.mem x s
+
+  let rec to_string = function
+    | All -> "All"
+    | Finite s ->
+       "{" ^ (StringSet.fold (fun s accu-> s^","^accu) s "}")
+end
+                    
 module Env = struct
   type t = string StringMap.t (* certain bindings of variables *)
   let zero = StringMap.empty
@@ -68,20 +100,9 @@ module Effect = struct
      of variables that a piece of code might asign to.
    *)
   
-  type varset =
-    | Any                      (* any variable may be changed *)
-    | Touched of StringSet.t   (* upper bound on set of changed variables *)
-  let varset_union vs1 vs2 = match vs1 with
-    | Any -> Any
-    | Touched s1 -> match vs2 with
-                    | Any -> Any
-                    | Touched s2 -> Touched (StringSet.union s1 s2)
-  let mem x = function
-    | Any -> true
-    | Touched s -> StringSet.mem x s
 
   type t = {
-      vars: varset;
+      vars: StringTopSet.t;
       bind: Env.t;
       isnull: bool
     }
@@ -93,31 +114,28 @@ module Effect = struct
   let zero = {
       (* null effect. *)
       isnull=true;
-      vars=Touched StringSet.empty;
+      vars=StringTopSet.empty;
       bind=Env.zero;
     }
 
   let one = {
       (* maximal effect: any variable may be overwritten *)
       isnull=false;
-      vars=Any;
+      vars=StringTopSet.all;
       bind=Env.zero
     }
            
   let rec plus e1 e2 =
-    (* the effect of combing [e1] and [e2] any arbitrary times and in 
+    (* the effect of combining [e1] and [e2] any arbitrary times and in 
        any order.
      *)
     if e1.isnull then e2
     else if e2.isnull then e1
-    else {
+    else
+      {
         isnull=false;
         bind=Env.zero;
-        vars=match e1.vars with
-             | Any -> Any
-             | Touched s1 -> match e2.vars with
-                             | Any -> Any
-                             | Touched s2 -> Touched (StringSet.union s1 s2)
+        vars=StringTopSet.union e1.vars e2.vars
       }
 
   let compose e1 e2 =
@@ -128,10 +146,12 @@ module Effect = struct
     else if e2.isnull then e1
     else {
         isnull=false;
-        vars=varset_union e1.vars e2.vars;
+        vars=StringTopSet.union e1.vars e2.vars;
         bind=
           let e1bind_without_e2touched =
-            StringMap.filter (fun x _ -> not (mem x e2.vars)) e1.bind
+            StringMap.filter
+              (fun x _ -> not (StringTopSet.mem x e2.vars))
+              e1.bind
           in
           StringMap.union (fun key x y -> Some y)
             e1bind_without_e2touched
@@ -140,20 +160,16 @@ module Effect = struct
 
   let from_var x = {
       isnull=false;
-      vars=Touched (StringSet.singleton x);
+      vars=StringTopSet.singleton x;
       bind=Env.zero
     }
       
   let from_varlist l = {
       isnull=false;
-      vars=Touched (StringSet.of_list l);
+      vars=StringTopSet.of_list l;
       bind=Env.zero
     }
 
-  let rec to_string = function
-    | Any -> "ANY"
-    | Touched s ->
-       "{" ^ (StringSet.fold (fun s accu-> s^","^accu) s "}")
 end
 
 let debug s = Printf.printf "DEB: %s\n" s
