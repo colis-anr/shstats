@@ -79,7 +79,7 @@ module Effect = struct
 
   let from_varlist l =  Touched (StringSet.of_list l)
 
-  let rec to_string e = function
+  let rec to_string = function
     | Any -> "ANY"
     | Touched s ->
        "{" ^ (StringSet.fold (fun s accu-> s^","^accu) s "}")
@@ -96,7 +96,15 @@ module Env = struct
     StringMap.add name value (StringMap.remove name env)
 end
 
-let extract_simple_assignment _ = None (* FIXME *)
+let extract_simple_assignment_clist env = function
+  | _ -> None (* FIXME *)
+
+let extract_simple_assignment_complete_command env = function
+  | CompleteCommand_CList_Separator({value=clist},_)
+    | CompleteCommand_CList({value=clist})
+    -> extract_simple_assignment_clist env clist
+  | CompleteCommand_Empty -> None
+
 
 let debug s = Printf.printf "DEB: %s\n" s
                                            
@@ -214,7 +222,7 @@ module Self : Analyzer.S = struct
                in
                let env' = Env.retract env he
                in
-               let new_env = match extract_simple_assignment h with
+               let new_env = match extract_simple_assignment_clist env h with
                  | None -> env'
                  | Some (name,value) -> Env.add (name,value ) env' 
                in
