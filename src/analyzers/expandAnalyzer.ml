@@ -91,18 +91,23 @@ module Effect = struct
     | Touched s -> StringSet.mem x s
 
   let zero = {
+      (* null effect. *)
       isnull=true;
       vars=Touched StringSet.empty;
       bind=Env.zero;
     }
 
   let one = {
+      (* maximal effect: any variable may be overwritten *)
       isnull=false;
       vars=Any;
       bind=Env.zero
     }
            
   let rec plus e1 e2 =
+    (* the effect of combing [e1] and [e2] any arbitrary times and in 
+       any order.
+     *)
     if e1.isnull then e2
     else if e2.isnull then e1
     else {
@@ -161,7 +166,7 @@ module Self : Analyzer.S = struct
 
   let process_script filename cst =
 
-    let affected_vars cst =
+    let expand cst =
       let module Fncts = struct
           let set = ref StringSet.empty
           let is s = StringSet.mem s !set
@@ -274,16 +279,16 @@ module Self : Analyzer.S = struct
                ,
                  Effect.compose he re
                )
-                 
+
+           (* FIXME: more constructions implementing sequential composition *)
         end
       in
-      (snd (effect_collector#visit_complete_command_list
-              Env.zero cst)).Effect.vars
+      fst (effect_collector#visit_complete_command_list Env.zero cst)
 
     in
-    let cout = open_out (filename^".var")
+    let cout = open_out (filename^".expanded")
     in begin
-        Printf.fprintf cout "%s\n" (Effect.to_string (affected_vars cst));
+        Libmorbig.JsonHelpers.save_as_json true cout (expand cst);
         close_out cout
       end
 
