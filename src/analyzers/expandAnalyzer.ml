@@ -53,58 +53,103 @@ let is_expandable s = String.contains s '$' || String.contains s '`'
 module StringMap = Map.Make(String)
 module StringSet = Set.Make(String)
 
+module Env = struct
+  type t = string StringMap.t (* certain bindings of variables *)
+  let zero = StringMap.empty
+  let add (name,value) env =
+    (* add a binding to an environement, or update *)
+    StringMap.add name value (StringMap.remove name env)
+end
+
 module Effect = struct
   (* a value of type [t] is an over-approximation of the effect of executing a
    piece of code in a given environment:
    - [var] is a set of variables. This is an overapproximation of the set
      of variables that a piece of code might asign to.
    *)
-  type t =
+  type varset =
     | Any                      (* any variable may be changed *)
     | Touched of StringSet.t   (* upper bound on set of changed variables *)
+  let varset_union vs1 vs2 = match vs1 with
+    | Any -> Any
+    | Touched s1 -> match vs2 with
+                    | Any -> Any
+                    | Touched s2 -> Touched (StringSet.union s1 s2)
 
+  type t = {
+      vars: varset;
+      bind: Env.t;
+      isnull: bool
+    }
+  (* type invariants:
+     - domain(bind) \subseteq vars
+     - isnull=true implies vars=emptset and bind=emptymap
+   *)            
+         
   let mem x = function
     | Any -> true
     | Touched s -> StringSet.mem x s
-                 
-  let zero = Touched StringSet.empty
 
-  let rec plus e1 e2 = match e1 with
-    | Any -> Any
-    | Touched s1 -> match e2 with
-                 | Any -> Any
-                 | Touched s2 -> Touched (StringSet.union s1 s2)
-     
-  let from_var x = Touched (StringSet.singleton x)
+  let zero = {
+      isnull=true;
+      vars=Touched StringSet.empty;
+      bind=Env.zero;
+    }
 
-  let from_varlist l =  Touched (StringSet.of_list l)
+  let one = {
+      isnull=false;
+      vars=Any;
+      bind=Env.zero
+    }
+           
+  let rec plus e1 e2 =
+    if e1.isnull then e2
+    else if e2.isnull then e1
+    else {
+        isnull=false;
+        bind=Env.zero;
+        vars=match e1.vars with
+             | Any -> Any
+             | Touched s1 -> match e2.vars with
+                             | Any -> Any
+                             | Touched s2 -> Touched (StringSet.union s1 s2)
+      }
+
+  let compose e1 e2 =
+    (* the effect of sequentially composing first effect [e1], then
+       effect [e2].
+     *)
+    if e1.isnull then e2
+    else if e2.isnull then e1
+    else {
+        isnull=false;
+        vars=varset_union e1.vars e2.vars;
+        bind=
+          let e1bind_without_e2touched =
+            StringMap.filter (fun x _ -> not (mem x e2.vars)) e1.bind
+          in
+          StringMap.union (fun key x y -> Some y)
+            e1bind_without_e2touched
+            e2.bind
+      }
+
+  let from_var x = {
+      isnull=false;
+      vars=Touched (StringSet.singleton x);
+      bind=Env.zero
+    }
+      
+  let from_varlist l = {
+      isnull=false;
+      vars=Touched (StringSet.of_list l);
+      bind=Env.zero
+    }
 
   let rec to_string = function
     | Any -> "ANY"
     | Touched s ->
        "{" ^ (StringSet.fold (fun s accu-> s^","^accu) s "}")
 end
-
-module Env = struct
-  type t = string StringMap.t (* certain bindings of variables *)
-  let zero = StringMap.empty
-  let retract env ef =
-    (* [env] without the bindings for elements of [ef] *)
-    StringMap.filter (fun x _ -> not (Effect.mem x ef)) env
-  let add (name,value) env =
-    (* add a binding to an environement, or update *)
-    StringMap.add name value (StringMap.remove name env)
-end
-
-let extract_simple_assignment_clist env = function
-  | _ -> None (* FIXME *)
-
-let extract_simple_assignment_complete_command env = function
-  | CompleteCommand_CList_Separator({value=clist},_)
-    | CompleteCommand_CList({value=clist})
-    -> extract_simple_assignment_clist env clist
-  | CompleteCommand_Empty -> None
-
 
 let debug s = Printf.printf "DEB: %s\n" s
                                            
@@ -146,12 +191,12 @@ module Self : Analyzer.S = struct
               (* [cmd] might be expanded to anything: to a function or
                  special builtin, or somthing else. So we assume the
                  worst: it is some function. *)
-              Effect.Any
+              Effect.one
             else if Fncts.is cmd
             then
               (* [cmd] is a call to a known function whcih could
                  have any effect. *)
-              Effect.Any
+              Effect.one
             else if is_special_builtin cmd
             then
               (* [cmd] is a special builtin: we have to take the effects of
@@ -218,25 +263,22 @@ module Self : Analyzer.S = struct
           method! visit_complete_command_list env = function
             | [] -> ([], Effect.zero)
             | h::r ->
-               let (ht,he) = self#visit_complete_command env h
+               let (ht,he) =
+                 self#visit_complete_command env h
                in
-               let env' = Env.retract env he
-               in
-               let new_env = match extract_simple_assignment_clist env h with
-                 | None -> env'
-                 | Some (name,value) -> Env.add (name,value ) env' 
-               in
-               let (rt,re) = self#visit_complete_command_list new_env r
+               let (rt,re) =
+                 self#visit_complete_command_list he.Effect.bind r
                in
                (
                  ht::rt
                ,
-                 Effect.plus re he
+                 Effect.compose he re
                )
                  
         end
       in
-      snd (effect_collector#visit_complete_command_list Env.zero cst)
+      (snd (effect_collector#visit_complete_command_list
+              Env.zero cst)).Effect.vars
 
     in
     let cout = open_out (filename^".var")
