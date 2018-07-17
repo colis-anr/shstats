@@ -67,6 +67,7 @@ module Effect = struct
    - [var] is a set of variables. This is an overapproximation of the set
      of variables that a piece of code might asign to.
    *)
+  
   type varset =
     | Any                      (* any variable may be changed *)
     | Touched of StringSet.t   (* upper bound on set of changed variables *)
@@ -75,6 +76,9 @@ module Effect = struct
     | Touched s1 -> match vs2 with
                     | Any -> Any
                     | Touched s2 -> Touched (StringSet.union s1 s2)
+  let mem x = function
+    | Any -> true
+    | Touched s -> StringSet.mem x s
 
   type t = {
       vars: varset;
@@ -86,10 +90,6 @@ module Effect = struct
      - isnull=true implies vars=emptset and bind=emptymap
    *)            
          
-  let mem x = function
-    | Any -> true
-    | Touched s -> StringSet.mem x s
-
   let zero = {
       (* null effect. *)
       isnull=true;
@@ -191,16 +191,10 @@ module Self : Analyzer.S = struct
           method effect_of_simple_command env pre_effect cmd suf_effect =
             let presuf_effect = self#plus pre_effect suf_effect
             in
-            if is_expandable cmd
+            if is_expandable cmd || Fncts.is cmd
             then 
-              (* [cmd] might be expanded to anything: to a function or
-                 special builtin, or somthing else. So we assume the
-                 worst: it is some function. *)
-              Effect.one
-            else if Fncts.is cmd
-            then
-              (* [cmd] is a call to a known function whcih could
-                 have any effect. *)
+              (* [cmd] might be (expanded to) the name of a visible
+                 function. So we assume the worst. *)
               Effect.one
             else if is_special_builtin cmd
             then
