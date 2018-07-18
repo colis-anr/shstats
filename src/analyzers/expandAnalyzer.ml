@@ -91,6 +91,28 @@ module Env = struct
   let add (name,value) env =
     (* add a binding to an environement, or update *)
     StringMap.add name value (StringMap.remove name env)
+
+  let singleton (name,value) = StringMap.singleton name value
+
+  (* FIXME: word fragments *)
+  (* FIXME: more precise matching of paramters: ${.} *)
+  let expand_variable env (Word (w, _)) =
+    let is_var =
+      "\\$\\([a-zA-Z_][a-zA-Z_0-9@*#?$!0-]*\\)"
+    in
+    let lookup_var s =
+      try
+	StringMap.find (Str.matched_group 1 s) env
+      with Not_found ->
+	s
+    in
+    Word (Str.(global_substitute (regexp is_var) lookup_var w), [])
+
+  let ground_instance env w =
+    let w_instance = expand_variable env w
+    in if is_expandable (unWord w_instance)
+       then None
+       else Some w_instance
 end
 
 module Effect = struct
@@ -158,10 +180,16 @@ module Effect = struct
             e2.bind
       }
 
-  let from_var x = {
+  let from_var_touched x = {
       isnull=false;
       vars=StringTopSet.singleton x;
       bind=Env.zero
+    }
+
+  let from_var_bound x v = {
+      isnull=false;
+      vars=StringTopSet.singleton x;
+      bind=Env.singleton (x,v)
     }
       
   let from_varlist l = {
@@ -195,13 +223,29 @@ module Self : Analyzer.S = struct
           method zero = Effect.zero
           method plus x y = Effect.plus x y
 
-          method! visit_assignment_word (env: Env.t) (name,word) =
+          method! visit_word env w =
             (
-              (name,word)
+              (match Env.ground_instance env w with
+               | None -> w
+               | Some wi -> wi)
             ,
-              self#plus
-              (Effect.from_var (Libmorbig.CSTHelpers.unName name))
-              (snd (self#visit_word env word))
+              Effect.from_varlist (assigned_by_word w)
+            )
+
+          method! visit_assignment_word (env: Env.t) (name,word) =
+            let word_visited,word_effect = self#visit_word env word in
+            let value = unWord word_visited in
+            (
+              (name,word_visited)
+            ,
+              Effect.compose
+                word_effect
+                (if is_expandable value
+                 then
+                   Effect.from_var_touched (Libmorbig.CSTHelpers.unName name)
+                 else
+                   Effect.from_var_bound (unName name) value
+                )
             )
 
           method effect_of_simple_command env pre_effect cmd suf_effect =
@@ -265,9 +309,6 @@ module Self : Analyzer.S = struct
                ,
                  self#effect_of_simple_command env self#zero cmd self#zero
                )
-
-          method! visit_word fcts w =
-            (w, Effect.from_varlist (assigned_by_word w))
 
           method! visit_function_definition fcts cst = match cst with
             | FunctionDefinition_Fname_Lparen_Rparen_LineBreak_FunctionBody
