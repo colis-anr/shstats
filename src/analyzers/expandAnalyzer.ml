@@ -175,7 +175,7 @@ module Effect = struct
               (fun x _ -> not (StringTopSet.mem x e2.vars))
               e1.bind
           in
-          StringMap.union (fun key x y -> Some y)
+          StringMap.union (fun key x y -> assert false)
             e1bind_without_e2touched
             e2.bind
       }
@@ -242,14 +242,14 @@ module Self : Analyzer.S = struct
                 word_effect
                 (if is_expandable value
                  then
-                   Effect.from_var_touched (Libmorbig.CSTHelpers.unName name)
+                   Effect.from_var_touched (unName name)
                  else
                    Effect.from_var_bound (unName name) value
                 )
             )
 
           method effect_of_simple_command env pre_effect cmd suf_effect =
-            let presuf_effect = self#plus pre_effect suf_effect
+            let presuf_effect = Effect.compose pre_effect suf_effect
             in
             if is_expandable cmd || Fncts.is cmd
             then 
@@ -264,7 +264,7 @@ module Self : Analyzer.S = struct
             else
               (* [cmd] must be the creation of a process, that is the
                  assignement in the prefix is local to the process. *)
-              suf_effect
+              suf_effect (* FIXME *)
                    
           method! visit_simple_command env cst = match cst with
             | SimpleCommand_CmdPrefix_CmdWord_CmdSuffix (pre',cw',suf') ->
