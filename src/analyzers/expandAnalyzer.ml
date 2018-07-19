@@ -113,6 +113,11 @@ module Env = struct
     in if is_expandable (unWord w_instance)
        then None
        else Some w_instance
+
+  let to_string env =
+    "{"^(StringMap.fold
+           (fun key value accu -> key^"->"^value^","^accu) env "}"
+        )
 end
 
 module Effect = struct
@@ -198,9 +203,14 @@ module Effect = struct
       bind=Env.zero
     }
 
+  let to_string {isnull=isnull;vars=vars;bind=bind} =
+    "["^
+      (if isnull then "null" else "nonull")^";"^
+        (StringTopSet.to_string vars)^";"^
+          (Env.to_string bind)^"]"
 end
 
-let debug s = Printf.printf "DEB: %s\n" s
+let debug s1 s2 = Printf.printf "DEB %s: %s\n" s1 s2
                                            
 module Self : Analyzer.S = struct
 
