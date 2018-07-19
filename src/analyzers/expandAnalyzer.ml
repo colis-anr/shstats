@@ -134,7 +134,6 @@ module Effect = struct
       isnull: bool
     }
   (* type invariants:
-     - domain(bind) \subseteq vars
      - isnull=true implies vars=emptset and bind=emptymap
    *)            
          
@@ -180,28 +179,34 @@ module Effect = struct
               (fun x _ -> not (StringTopSet.mem x e2.vars))
               e1.bind
           in
-          StringMap.union (fun key x y -> assert false)
+          StringMap.union (fun key x y -> Some y)
             e1bind_without_e2touched
             e2.bind
       }
 
-  let from_var_touched x = {
+  let from_var_touched env x = {
       isnull=false;
       vars=StringTopSet.singleton x;
-      bind=Env.zero
+      bind=env
     }
 
-  let from_var_bound x v = {
+  let from_var_bound env x v = {
       isnull=false;
       vars=StringTopSet.singleton x;
-      bind=Env.singleton (x,v)
+      bind=Env.add (x,v) env
     }
       
-  let from_varlist l = {
+  let from_varlist env l = {
       isnull=false;
       vars=StringTopSet.of_list l;
-      bind=Env.zero
+      bind=env
     }
+
+  let from_env e = {
+    isnull = false;
+    vars = StringTopSet.empty;
+    bind = e
+  }
 
   let to_string {isnull=isnull;vars=vars;bind=bind} =
     "["^
@@ -259,7 +264,7 @@ module Self : Analyzer.S = struct
                | None -> w
                | Some wi -> wi)
             ,
-              Effect.from_varlist (assigned_by_word w)
+              Effect.from_varlist env (assigned_by_word w)
             )
 
           method! visit_assignment_word (env: Env.t) (name,word) =
@@ -272,13 +277,14 @@ module Self : Analyzer.S = struct
                 word_effect
                 (if is_expandable value
                  then
-                   Effect.from_var_touched (unName name)
+                   Effect.from_var_touched env (unName name)
                  else
-                   Effect.from_var_bound (unName name) value
+                   Effect.from_var_bound env (unName name) value
                 )
             )
 
-          method! visit_simple_command env cst = match cst with
+          method! visit_simple_command env cst =
+            match cst with
             | SimpleCommand_CmdPrefix_CmdWord_CmdSuffix (pre',cw',suf') ->
                let (prev',pree) = self#visit_cmd_prefix' env pre' in
                let (cwv',cwe) = self#visit_cmd_word' pree.Effect.bind cw' in
