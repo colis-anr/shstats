@@ -209,7 +209,7 @@ module Effect = struct
         (StringTopSet.to_string vars)^";"^
           (Env.to_string bind)^"]"
 end
-
+  
 let debug s1 s2 = Printf.printf "DEB %s: %s\n" s1 s2
                                            
 module Self : Analyzer.S = struct
@@ -226,6 +226,24 @@ module Self : Analyzer.S = struct
           let is s = StringSet.mem s !set
           let add s = set := StringSet.add s !set
         end
+      in
+      let effect_of_simple_command env pre_effect cmd suf_effect =
+        let presuf_effect = Effect.compose pre_effect suf_effect
+        in
+        if is_expandable cmd || Fncts.is cmd
+        then 
+          (* [cmd] might be (expanded to) the name of a visible
+             function. So we assume the worst. *)
+          Effect.one
+        else if is_special_builtin cmd
+        then
+          (* [cmd] is a special builtin: we have to take the effects of
+             command prefix and suffix into account. *)
+          presuf_effect
+        else
+          (* [cmd] must be the creation of a process, that is the
+             assignement in the prefix is local to the process. *)
+          suf_effect (* FIXME *)
       in
       let expand_and_effect =
         object(self)
@@ -258,24 +276,6 @@ module Self : Analyzer.S = struct
                 )
             )
 
-          method effect_of_simple_command env pre_effect cmd suf_effect =
-            let presuf_effect = Effect.compose pre_effect suf_effect
-            in
-            if is_expandable cmd || Fncts.is cmd
-            then 
-              (* [cmd] might be (expanded to) the name of a visible
-                 function. So we assume the worst. *)
-              Effect.one
-            else if is_special_builtin cmd
-            then
-              (* [cmd] is a special builtin: we have to take the effects of
-                 command prefix and suffix into account. *)
-              presuf_effect
-            else
-              (* [cmd] must be the creation of a process, that is the
-                 assignement in the prefix is local to the process. *)
-              suf_effect (* FIXME *)
-
           method! visit_simple_command env cst = match cst with
             (* FIXME: effects of expansion the command word or name *)
             | SimpleCommand_CmdPrefix_CmdWord_CmdSuffix (pre',cw',suf') ->
@@ -286,7 +286,7 @@ module Self : Analyzer.S = struct
                (
                  SimpleCommand_CmdPrefix_CmdWord_CmdSuffix (prev,cw',sufv)
                ,
-                 self#effect_of_simple_command env pree cmd sufe
+                 effect_of_simple_command env pree cmd sufe
                )
             | SimpleCommand_CmdPrefix_CmdWord (pre',cw') ->
                let cmd = UnQuote.on_string (unCmdWord' cw')
@@ -295,7 +295,7 @@ module Self : Analyzer.S = struct
                (
                  SimpleCommand_CmdPrefix_CmdWord (prev,cw')
                ,
-                 self#effect_of_simple_command env pree cmd self#zero
+                 effect_of_simple_command env pree cmd self#zero
                )
             | SimpleCommand_CmdPrefix pre' ->
                let (prev,pree) = self#visit_cmd_prefix' env pre'
@@ -312,7 +312,7 @@ module Self : Analyzer.S = struct
                (
                  SimpleCommand_CmdName_CmdSuffix (nam',sufv)
                ,
-                 self#effect_of_simple_command env self#zero cmd sufe
+                 effect_of_simple_command env self#zero cmd sufe
                )
             | SimpleCommand_CmdName nam' ->
                let cmd = UnQuote.on_string (unCmdName' nam')
@@ -320,7 +320,7 @@ module Self : Analyzer.S = struct
                (
                  cst
                ,
-                 self#effect_of_simple_command env self#zero cmd self#zero
+                 effect_of_simple_command env self#zero cmd self#zero
                )
 
           method! visit_function_definition fcts cst = match cst with
