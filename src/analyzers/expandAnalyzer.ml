@@ -227,7 +227,7 @@ module Self : Analyzer.S = struct
           let add s = set := StringSet.add s !set
         end
       in
-      let effect_collector =
+      let expand_and_effect =
         object(self)
           inherit [_] Libmorbig.CST.mapreduce as super
           method zero = Effect.zero
@@ -275,41 +275,44 @@ module Self : Analyzer.S = struct
               (* [cmd] must be the creation of a process, that is the
                  assignement in the prefix is local to the process. *)
               suf_effect (* FIXME *)
-                   
+
           method! visit_simple_command env cst = match cst with
+            (* FIXME: effects of expansion the command word or name *)
             | SimpleCommand_CmdPrefix_CmdWord_CmdSuffix (pre',cw',suf') ->
-               let pre_effect = snd (self#visit_cmd_prefix' env pre')
-               and suf_effect = snd (self#visit_cmd_suffix' env suf' )
+               let (prev,pree) = self#visit_cmd_prefix' env pre'
+               and (sufv,sufe) = self#visit_cmd_suffix' env suf'
                and cmd = UnQuote.on_string (unCmdWord' cw')
                in
                (
-                 cst
+                 SimpleCommand_CmdPrefix_CmdWord_CmdSuffix (prev,cw',sufv)
                ,
-                 self#effect_of_simple_command env pre_effect cmd suf_effect
+                 self#effect_of_simple_command env pree cmd sufe
                )
             | SimpleCommand_CmdPrefix_CmdWord (pre',cw') ->
                let cmd = UnQuote.on_string (unCmdWord' cw')
-               and pre_effect = snd (self#visit_cmd_prefix' env pre')
+               and (prev,pree) = self#visit_cmd_prefix' env pre'
                in
                (
-                 cst
+                 SimpleCommand_CmdPrefix_CmdWord (prev,cw')
                ,
-                 self#effect_of_simple_command env pre_effect cmd self#zero
+                 self#effect_of_simple_command env pree cmd self#zero
                )
             | SimpleCommand_CmdPrefix pre' ->
+               let (prev,pree) = self#visit_cmd_prefix' env pre'
+               in
                (
-                 SimpleCommand_CmdPrefix pre'
+                 SimpleCommand_CmdPrefix prev
                ,
-                 snd (self#visit_cmd_prefix' env pre')
+                 pree
                )
             | SimpleCommand_CmdName_CmdSuffix (nam',suf') ->
                let cmd = UnQuote.on_string (unCmdName' nam')
-               and suf_effect = snd (self#visit_cmd_suffix' env suf')
+               and (sufv,sufe) = self#visit_cmd_suffix' env suf'
                in
                (
-                 SimpleCommand_CmdName_CmdSuffix (nam',suf')
+                 SimpleCommand_CmdName_CmdSuffix (nam',sufv)
                ,
-                 self#effect_of_simple_command env self#zero cmd suf_effect
+                 self#effect_of_simple_command env self#zero cmd sufe
                )
             | SimpleCommand_CmdName nam' ->
                let cmd = UnQuote.on_string (unCmdName' nam')
@@ -344,7 +347,7 @@ module Self : Analyzer.S = struct
            (* FIXME: more constructions implementing sequential composition *)
         end
       in
-      fst (effect_collector#visit_complete_command_list Env.zero cst)
+      fst (expand_and_effect#visit_complete_command_list Env.zero cst)
 
     in
     let cout = open_out (filename^".expanded")
