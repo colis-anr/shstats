@@ -338,13 +338,23 @@ module Self : Analyzer.S = struct
                let (rt,re) =
                  self#visit_complete_command_list he.Effect.bind r
                in
+               (ht::rt, Effect.compose he re)
+
+          method! visit_clist env = function
+            | CList_AndOr (and_or') ->
+               let (aov',aoe) = self#visit_and_or' env and_or'
+               in ((CList_AndOr aov'), aoe)
+            | CList_CList_SeparatorOp_AndOr(clist',separator_op',and_or') ->
+               let (clv',cle) = self#visit_clist' env clist'
+               in
+               let (aov',aoe) = self#visit_and_or' cle.Effect.bind and_or'
+               in
                (
-                 ht::rt
+                 CList_CList_SeparatorOp_AndOr (clv', separator_op', aov')
                ,
-                 Effect.compose he re
+                 Effect.compose cle aoe
                )
 
-           (* FIXME: more constructions implementing sequential composition *)
         end
       in
       fst (expand_and_effect#visit_complete_command_list Env.zero cst)
