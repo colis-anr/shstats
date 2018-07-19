@@ -227,9 +227,8 @@ module Self : Analyzer.S = struct
           let add s = set := StringSet.add s !set
         end
       in
-      let effect_of_simple_command env pre_effect cmd suf_effect =
-        let presuf_effect = Effect.compose pre_effect suf_effect
-        in
+      let effect_of_simple_command env pre_effect cmd cmd_effect suf_effect =
+        (* FIXME: effect of read etc. *)
         if is_expandable cmd || Fncts.is cmd
         then 
           (* [cmd] might be (expanded to) the name of a visible
@@ -238,12 +237,15 @@ module Self : Analyzer.S = struct
         else if is_special_builtin cmd
         then
           (* [cmd] is a special builtin: we have to take the effects of
-             command prefix and suffix into account. *)
-          presuf_effect
+             prefix, command, and suffix into account. *)
+          Effect.compose
+            pre_effect
+            (Effect.compose cmd_effect suf_effect)
         else
           (* [cmd] must be the creation of a process, that is the
              assignement in the prefix is local to the process. *)
-          suf_effect (* FIXME *)
+          Effect.compose cmd_effect suf_effect
+          (* FIXME: the prefix might still have effects by expansion *)
       in
       let expand_and_effect =
         object(self)
@@ -277,50 +279,51 @@ module Self : Analyzer.S = struct
             )
 
           method! visit_simple_command env cst = match cst with
-            (* FIXME: effects of expansion the command word or name *)
             | SimpleCommand_CmdPrefix_CmdWord_CmdSuffix (pre',cw',suf') ->
-               let (prev,pree) = self#visit_cmd_prefix' env pre'
-               and (sufv,sufe) = self#visit_cmd_suffix' env suf'
-               and cmd = UnQuote.on_string (unCmdWord' cw')
-               in
+               let (prev',pree) = self#visit_cmd_prefix' env pre' in
+               let (cwv',cwe) = self#visit_cmd_word' pree.Effect.bind cw' in
+               let (sufv',sufe) = self#visit_cmd_suffix' cwe.Effect.bind suf' in
+               let cmd = UnQuote.on_string (unCmdWord' cwv') in
                (
-                 SimpleCommand_CmdPrefix_CmdWord_CmdSuffix (prev,cw',sufv)
+                 SimpleCommand_CmdPrefix_CmdWord_CmdSuffix (prev',cwv',sufv')
                ,
-                 effect_of_simple_command env pree cmd sufe
+                 effect_of_simple_command env pree cmd cwe sufe
                )
             | SimpleCommand_CmdPrefix_CmdWord (pre',cw') ->
-               let cmd = UnQuote.on_string (unCmdWord' cw')
-               and (prev,pree) = self#visit_cmd_prefix' env pre'
-               in
+               let (prev',pree) = self#visit_cmd_prefix' env pre' in
+               let (cwv',cwe) = self#visit_cmd_word' pree.Effect.bind cw' in
+               let cmd = UnQuote.on_string (unCmdWord' cwv') in
                (
-                 SimpleCommand_CmdPrefix_CmdWord (prev,cw')
+                 SimpleCommand_CmdPrefix_CmdWord (prev',cwv')
                ,
-                 effect_of_simple_command env pree cmd self#zero
+                 effect_of_simple_command env pree cmd cwe self#zero
                )
             | SimpleCommand_CmdPrefix pre' ->
-               let (prev,pree) = self#visit_cmd_prefix' env pre'
+               let (prev',pree) = self#visit_cmd_prefix' env pre'
                in
                (
-                 SimpleCommand_CmdPrefix prev
+                 SimpleCommand_CmdPrefix prev'
                ,
                  pree
                )
             | SimpleCommand_CmdName_CmdSuffix (nam',suf') ->
-               let cmd = UnQuote.on_string (unCmdName' nam')
-               and (sufv,sufe) = self#visit_cmd_suffix' env suf'
+               let (cnv',cne) = self#visit_cmd_name' env nam' in 
+               let (sufv',sufe) = self#visit_cmd_suffix' cne.Effect.bind suf' in
+               let cmd = UnQuote.on_string (unCmdName' cnv')
                in
                (
-                 SimpleCommand_CmdName_CmdSuffix (nam',sufv)
+                 SimpleCommand_CmdName_CmdSuffix (cnv',sufv')
                ,
-                 effect_of_simple_command env self#zero cmd sufe
+                 effect_of_simple_command env self#zero cmd cne sufe
                )
             | SimpleCommand_CmdName nam' ->
-               let cmd = UnQuote.on_string (unCmdName' nam')
+               let (cnv',cne) = self#visit_cmd_name' env nam' in 
+               let cmd = UnQuote.on_string (unCmdName' cnv')
                in
                (
-                 cst
+                 SimpleCommand_CmdName cnv'
                ,
-                 effect_of_simple_command env self#zero cmd self#zero
+                 effect_of_simple_command env self#zero cmd cne self#zero
                )
 
           method! visit_function_definition fcts cst = match cst with
