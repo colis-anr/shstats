@@ -337,7 +337,6 @@ module Self : Analyzer.S = struct
                let (ht,he) =
                  self#visit_complete_command env h
                in
-               debug "after complete cmd" (Effect.to_string  he); 
                let (rt,re) =
                  self#visit_complete_command_list he.Effect.bind r
                in
