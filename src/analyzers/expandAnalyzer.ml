@@ -307,14 +307,13 @@ module Self : Analyzer.S = struct
                  pree
                )
             | SimpleCommand_CmdName_CmdSuffix (nam',suf') ->
-               let (cnv',cne) = self#visit_cmd_name' env nam' in 
-               let (sufv',sufe) = self#visit_cmd_suffix' cne.Effect.bind suf' in
-               let cmd = UnQuote.on_string (unCmdName' cnv')
+               let (sufv',sufe) = self#visit_cmd_suffix' env suf' in
+               let cmd = UnQuote.on_string (unCmdName' nam')
                in
                (
-                 SimpleCommand_CmdName_CmdSuffix (cnv',sufv')
+                 SimpleCommand_CmdName_CmdSuffix (nam',sufv')
                ,
-                 effect_of_simple_command env self#zero cmd cne sufe
+                 effect_of_simple_command env self#zero cmd self#zero sufe
                )
             | SimpleCommand_CmdName nam' ->
                let (cnv',cne) = self#visit_cmd_name' env nam' in 
@@ -338,6 +337,7 @@ module Self : Analyzer.S = struct
                let (ht,he) =
                  self#visit_complete_command env h
                in
+               debug "after complete cmd" (Effect.to_string  he); 
                let (rt,re) =
                  self#visit_complete_command_list he.Effect.bind r
                in
