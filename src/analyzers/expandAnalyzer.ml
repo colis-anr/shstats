@@ -12,6 +12,8 @@ open Options
 open Commands
 open Messages
 
+let debug s1 s2 = Printf.printf "DEB %s: %s\n" s1 s2
+
 let unWord' {value=word} =
   Libmorbig.CSTHelpers.unWord word
 let unCmdWord' {value=CmdWord_Word word} =
@@ -94,6 +96,19 @@ module Env = struct
 
   let singleton (name,value) = StringMap.singleton name value
 
+  let intersection e1 e2 =
+    StringMap.merge
+      (fun key vo1 vo2 ->
+        match vo1 with
+        | None -> None
+        | Some v1 -> match vo2 with
+                     | None -> None
+                     | Some v2 ->
+                        if v1=v2 then Some v1 else None
+      )
+      e1
+      e2
+
   (* FIXME: word fragments *)
   (* FIXME: more precise matching of paramters: ${.} *)
   let expand_variable env (Word (w, _)) =
@@ -160,7 +175,7 @@ module Effect = struct
     else
       {
         isnull=false;
-        bind=Env.zero;
+        bind=Env.intersection e1.bind e2.bind;
         vars=StringTopSet.union e1.vars e2.vars
       }
 
@@ -215,8 +230,6 @@ module Effect = struct
           (Env.to_string bind)^"]"
 end
   
-let debug s1 s2 = Printf.printf "DEB %s: %s\n" s1 s2
-                                           
 module Self : Analyzer.S = struct
 
   let options = []
@@ -224,7 +237,6 @@ module Self : Analyzer.S = struct
   let name = "expander"
 
   let process_script filename cst =
-
     let expand cst =
       let module Fncts = struct
           let set = ref StringSet.empty
@@ -337,8 +349,9 @@ module Self : Analyzer.S = struct
                Fncts.add (unName fname);
                (cst,Effect.zero)
 
-          method! visit_complete_command_list env = function
-            | [] -> ([], Effect.zero)
+          method! visit_complete_command_list env cst =
+            match cst with
+            | [] -> ([], Effect.from_env env)
             | h::r ->
                let (ht,he) =
                  self#visit_complete_command env h
