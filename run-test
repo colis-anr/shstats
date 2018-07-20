@@ -1,0 +1,9 @@
+#!/bin/sh
+testdir=test-expansion
+\rm -r dummyreport
+find $testdir -name "*.sh" | \
+	morbig --as simple --from-stdin
+find $testdir -name "*.sh" | \
+	 bin/shstats --enable-expander --from-stdin --report-path dummyreport
+\rm -r dummyreport
+echo "expanded files are in the directory $testdir."
