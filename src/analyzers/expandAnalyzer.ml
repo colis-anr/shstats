@@ -343,11 +343,18 @@ module Self : Analyzer.S = struct
                  effect_of_simple_command env self#zero cmd cne self#zero
                )
 
-          method! visit_function_definition fcts cst = match cst with
+          method! visit_function_definition env = function
             | FunctionDefinition_Fname_Lparen_Rparen_LineBreak_FunctionBody
-              ({value=Fname_Name fname}, _linebreak',fbody') ->
+              ({value=Fname_Name fname} as fn, linebreak',fbody') ->
+               let (fbv',fbe) = self#visit_function_body' Env.zero fbody'
+               in
                Fncts.add (unName fname);
-               (cst,Effect.zero)
+               (
+                 FunctionDefinition_Fname_Lparen_Rparen_LineBreak_FunctionBody
+                   (fn,linebreak',fbv')
+               ,
+                 Effect.from_env env
+               )
 
           method! visit_complete_command_list env cst =
             match cst with
