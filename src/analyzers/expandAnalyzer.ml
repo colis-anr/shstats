@@ -376,6 +376,21 @@ module Self : Analyzer.S = struct
                  Effect.compose cle aoe
                )
 
+          method! visit_term env = function
+            | Term_AndOr(and_or') ->
+               let (aov',aoe) = self#visit_and_or' env and_or'
+               in ((Term_AndOr aov'), aoe)
+            | Term_Term_Separator_AndOr(term',separator',and_or') ->
+               let (tv',te) = self#visit_term' env term'
+               in
+               let (aov',aoe) = self#visit_and_or' te.Effect.bind and_or'
+               in
+               (
+                 Term_Term_Separator_AndOr (tv', separator', aov')
+               ,
+                 Effect.compose te aoe
+               )
+
         end
       in
       fst (expand_and_effect#visit_complete_command_list Env.zero cst)
