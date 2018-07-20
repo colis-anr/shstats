@@ -90,9 +90,6 @@ end
 module Env = struct
   type t = string StringMap.t (* certain bindings of variables *)
   let zero = StringMap.empty
-  let add (name,value) env =
-    (* add a binding to an environement, or update *)
-    StringMap.add name value (StringMap.remove name env)
 
   let singleton (name,value) = StringMap.singleton name value
 
@@ -106,6 +103,12 @@ module Env = struct
                      | Some v2 ->
                         if v1=v2 then Some v1 else None
       )
+      e1
+      e2
+
+  let update e1 e2 =
+    StringMap.merge
+      (fun key vo1 vo2 -> if vo2=None then vo1 else vo2)
       e1
       e2
 
@@ -206,29 +209,35 @@ module Effect = struct
             e2.bind
       }
 
-  let from_var_touched env x = {
+  let from_var_touched x = {
       isnull=false;
       vars=StringTopSet.singleton x;
-      bind=env
+      bind=Env.zero
     }
 
-  let from_var_bound env x v = {
+  let from_var_bound x v = {
       isnull=false;
       vars=StringTopSet.singleton x;
-      bind=Env.add (x,v) env
+      bind=Env.singleton (x,v)
     }
       
-  let from_varlist env l = {
+  let from_varlist l = {
       isnull=false;
       vars=StringTopSet.of_list l;
-      bind=env
+      bind=Env.zero
     }
 
   let from_env e = {
     isnull = false;
     vars = StringTopSet.empty;
     bind = e
-  }
+    }
+
+  let restore_binding env e = {
+      isnull = false;
+      vars = e.vars;
+      bind = env
+    }
 
   let to_string {isnull=isnull;vars=vars;bind=bind} =
     "["^
@@ -268,8 +277,9 @@ module Self : Analyzer.S = struct
         else
           (* [cmd] must be the creation of a process, that is the
              assignement in the prefix is local to the process. *)
-          Effect.compose cmd_effect suf_effect
-          (* FIXME: the prefix might still have effects by expansion *)
+          Effect.compose
+            (Effect.restore_binding env pre_effect)
+            (Effect.compose cmd_effect suf_effect)
       in
       let expand_and_effect =
         object(self)
@@ -283,7 +293,7 @@ module Self : Analyzer.S = struct
                | None -> w
                | Some wi -> wi)
             ,
-              Effect.from_varlist env (assigned_by_word w)
+              Effect.from_varlist (assigned_by_word w)
             )
 
           method! visit_assignment_word (env: Env.t) (name,word) =
@@ -296,18 +306,18 @@ module Self : Analyzer.S = struct
                 word_effect
                 (if is_expandable value
                  then
-                   Effect.from_var_touched env (unName name)
+                   Effect.from_var_touched (unName name)
                  else
-                   Effect.from_var_bound env (unName name) value
+                   Effect.from_var_bound (unName name) value
                 )
             )
 
           method! visit_simple_command env cst =
             match cst with
             | SimpleCommand_CmdPrefix_CmdWord_CmdSuffix (pre',cw',suf') ->
-               let (prev',pree) = self#visit_cmd_prefix' env pre' in
-               let (cwv',cwe) = self#visit_cmd_word' pree.Effect.bind cw' in
-               let (sufv',sufe) = self#visit_cmd_suffix' cwe.Effect.bind suf' in
+               let (prev',pree) = self#visit_cmd_prefix' env pre' 
+               and (cwv',cwe) = self#visit_cmd_word' env cw'
+               and (sufv',sufe) = self#visit_cmd_suffix' env suf' in
                let cmd = UnQuote.on_string (unCmdWord' cwv') in
                (
                  SimpleCommand_CmdPrefix_CmdWord_CmdSuffix (prev',cwv',sufv')
@@ -315,8 +325,8 @@ module Self : Analyzer.S = struct
                  effect_of_simple_command env pree cmd cwe sufe
                )
             | SimpleCommand_CmdPrefix_CmdWord (pre',cw') ->
-               let (prev',pree) = self#visit_cmd_prefix' env pre' in
-               let (cwv',cwe) = self#visit_cmd_word' pree.Effect.bind cw' in
+               let (prev',pree) = self#visit_cmd_prefix' env pre'
+               and (cwv',cwe) = self#visit_cmd_word' env cw' in
                let cmd = UnQuote.on_string (unCmdWord' cwv') in
                (
                  SimpleCommand_CmdPrefix_CmdWord (prev',cwv')
@@ -371,7 +381,8 @@ module Self : Analyzer.S = struct
                  self#visit_complete_command env h
                in
                let (rt,re) =
-                 self#visit_complete_command_list he.Effect.bind r
+                 self#visit_complete_command_list
+                   (Env.update env he.Effect.bind) r
                in
                (ht::rt, Effect.compose he re)
 
@@ -382,7 +393,9 @@ module Self : Analyzer.S = struct
             | CList_CList_SeparatorOp_AndOr(clist',separator_op',and_or') ->
                let (clv',cle) = self#visit_clist' env clist'
                in
-               let (aov',aoe) = self#visit_and_or' cle.Effect.bind and_or'
+               let (aov',aoe) =
+                 self#visit_and_or'
+                   (Env.update env cle.Effect.bind) and_or'
                in
                (
                  CList_CList_SeparatorOp_AndOr (clv', separator_op', aov')
@@ -397,7 +410,9 @@ module Self : Analyzer.S = struct
             | Term_Term_Separator_AndOr(term',separator',and_or') ->
                let (tv',te) = self#visit_term' env term'
                in
-               let (aov',aoe) = self#visit_and_or' te.Effect.bind and_or'
+               let (aov',aoe) =
+                 self#visit_and_or'
+                   (Env.update env te.Effect.bind) and_or'
                in
                (
                  Term_Term_Separator_AndOr (tv', separator', aov')

@@ -1,5 +1,5 @@
 #!/bin/dash
 
 x=old
-x=new test "whatever"
+x=new /bin/test "whatever"
 echo $x

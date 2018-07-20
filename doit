@@ -1,5 +1,0 @@
-#!/bin/sh
-
-\rm -r dummyreport
-find corpus-assignment -name "*.sh" | \
-	 bin/shstats --enable-expander --from-stdin --report-path dummyreport
