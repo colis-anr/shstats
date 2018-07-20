@@ -112,16 +112,23 @@ module Env = struct
   (* FIXME: word fragments *)
   (* FIXME: more precise matching of paramters: ${.} *)
   let expand_variable env (Word (w, _)) =
-    let is_var =
-      "\\$\\([a-zA-Z_][a-zA-Z_0-9@*#?$!0-]*\\)"
-    in
+    let re_parname =
+      "[a-zA-Z_][a-zA-Z_0-9@*?$!]*" in
+    let re_parameter =
+      "\\$\\(" ^ re_parname ^ "\\)" ^
+      "\\|\\${\\(" ^ re_parname ^ "\\)}" in
+    let extract_var s =
+      try
+        Str.matched_group 1 s
+      with Not_found ->
+        Str.matched_group 2 s in
     let lookup_var s =
       try
-	StringMap.find (Str.matched_group 1 s) env
+	StringMap.find (extract_var s) env
       with Not_found ->
 	s
     in
-    Word (Str.(global_substitute (regexp is_var) lookup_var w), [])
+    Word (Str.(global_substitute (regexp re_parameter) lookup_var w), [])
 
   let ground_instance env w =
     let w_instance = expand_variable env w
