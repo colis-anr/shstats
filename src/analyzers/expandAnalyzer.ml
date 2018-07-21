@@ -106,14 +106,7 @@ module Env = struct
       e1
       e2
 
-  let update e1 e2 =
-    StringMap.merge
-      (fun key vo1 vo2 -> if vo2=None then vo1 else vo2)
-      e1
-      e2
-
   (* FIXME: word fragments *)
-  (* FIXME: more precise matching of paramters: ${.} *)
   let expand_variable env (Word (w, _)) =
     let re_parname =
       "[a-zA-Z_][a-zA-Z_0-9@*?$!]*" in
@@ -189,6 +182,19 @@ module Effect = struct
         vars=StringTopSet.union e1.vars e2.vars
       }
 
+  let compose_env env1 eff2 =
+    (* returns the environment obtained by applying to environment [env1]
+       the effect {eff2].
+     *)
+    let env1bind_without_eff2touched =
+      StringMap.filter
+        (fun x _ -> not (StringTopSet.mem x eff2.vars))
+        env1
+    in
+    StringMap.union (fun key x y -> Some y)
+      env1bind_without_eff2touched
+      eff2.bind
+    
   let compose e1 e2 =
     (* the effect of sequentially composing first effect [e1], then
        effect [e2].
@@ -198,15 +204,7 @@ module Effect = struct
     else {
         isnull=false;
         vars=StringTopSet.union e1.vars e2.vars;
-        bind=
-          let e1bind_without_e2touched =
-            StringMap.filter
-              (fun x _ -> not (StringTopSet.mem x e2.vars))
-              e1.bind
-          in
-          StringMap.union (fun key x y -> Some y)
-            e1bind_without_e2touched
-            e2.bind
+        bind=compose_env e1.bind e2
       }
 
   let from_var_touched x = {
@@ -296,6 +294,15 @@ module Self : Analyzer.S = struct
               Effect.from_varlist (assigned_by_word w)
             )
 
+          (**
+             The effect of an assignment word consists of the effect
+             of the expansion of the word, and the effect of the 
+             assignemnt. Depending on whether the expanded word is
+             ground or not the effect of the assignment itself may be
+             either the addition of a binding, or just the touching
+             of a variable.
+           *)
+            
           method! visit_assignment_word (env: Env.t) (name,word) =
             let word_visited,word_effect = self#visit_word env word in
             let value = unWord word_visited in
@@ -312,6 +319,14 @@ module Self : Analyzer.S = struct
                 )
             )
 
+          (**
+             The effects of expansions or assignemnts in the prefix,
+             command, or suffix of a simple commans do not take effect
+             in the simple command itself. Hence we may expand all the
+             parts in parallel, and pass everyting (or zero) to the
+             function [effect_of_simple_coammand].
+           *)
+            
           method! visit_simple_command env cst =
             match cst with
             | SimpleCommand_CmdPrefix_CmdWord_CmdSuffix (pre',cw',suf') ->
@@ -360,6 +375,17 @@ module Self : Analyzer.S = struct
                  effect_of_simple_command env self#zero cmd cne self#zero
                )
 
+          (** 
+              When expanding the body of a function definition we may assume
+              nothing about the environment since the body will be
+              executed in the environment that we find at the moment
+              of the invokation of the function. Hence, we visit the
+              function body in the empty environement. Of course, any
+              effects of the body cannot be effects of the function
+              *definition* so the function definition itself has the
+              empty effect.                
+           *)
+               
           method! visit_function_definition env = function
             | FunctionDefinition_Fname_Lparen_Rparen_LineBreak_FunctionBody
               ({value=Fname_Name fname} as fn, linebreak',fbody') ->
@@ -370,56 +396,74 @@ module Self : Analyzer.S = struct
                  FunctionDefinition_Fname_Lparen_Rparen_LineBreak_FunctionBody
                    (fn,linebreak',fbv')
                ,
-                 Effect.from_env env
+                 Effect.zero
                )
 
+          (**
+            The sequential constructs of shell where we have to propagate
+            the effect of assignments from left to right.
+           *)
+               
           method! visit_complete_command_list env cst =
             match cst with
-            | [] -> ([], Effect.from_env env)
+            | [] -> ([], Effect.zero)
             | h::r ->
                let (ht,he) =
                  self#visit_complete_command env h
                in
                let (rt,re) =
                  self#visit_complete_command_list
-                   (Env.update env he.Effect.bind) r
+                   (Effect.compose_env env he) r
                in
                (ht::rt, Effect.compose he re)
 
-          method! visit_clist env = function
-            | CList_AndOr (and_or') ->
-               let (aov',aoe) = self#visit_and_or' env and_or'
-               in ((CList_AndOr aov'), aoe)
+          method! visit_clist env cst = match cst with
             | CList_CList_SeparatorOp_AndOr(clist',separator_op',and_or') ->
                let (clv',cle) = self#visit_clist' env clist'
                in
                let (aov',aoe) =
                  self#visit_and_or'
-                   (Env.update env cle.Effect.bind) and_or'
+                   (Effect.compose_env env cle) and_or'
                in
                (
                  CList_CList_SeparatorOp_AndOr (clv', separator_op', aov')
                ,
                  Effect.compose cle aoe
                )
+            | CList_AndOr (_) -> super#visit_clist env cst
 
-          method! visit_term env = function
-            | Term_AndOr(and_or') ->
-               let (aov',aoe) = self#visit_and_or' env and_or'
-               in ((Term_AndOr aov'), aoe)
+          method! visit_term env cst = match cst with
             | Term_Term_Separator_AndOr(term',separator',and_or') ->
                let (tv',te) = self#visit_term' env term'
                in
                let (aov',aoe) =
                  self#visit_and_or'
-                   (Env.update env te.Effect.bind) and_or'
+                   (Effect.compose_env env te) and_or'
                in
                (
                  Term_Term_Separator_AndOr (tv', separator', aov')
                ,
                  Effect.compose te aoe
                )
+            | Term_AndOr(_) -> super#visit_term env cst
 
+          method! visit_cmd_prefix env cst = match cst with
+            | CmdPrefix_CmdPrefix_AssignmentWord (cmd_prefix',a_word') ->
+               let (cv',ce) = self#visit_cmd_prefix' env cmd_prefix'
+               in
+               let (av',ae) =
+                 self#visit_assignment_word'
+                   (Effect.compose_env env ce) a_word'
+               in
+               (
+                 CmdPrefix_CmdPrefix_AssignmentWord(cv',av')
+               ,
+                 Effect.compose ce ae
+               )
+            | CmdPrefix_IoRedirect(_)
+              | CmdPrefix_CmdPrefix_IoRedirect (_)
+              | CmdPrefix_AssignmentWord (_)
+              -> super#visit_cmd_prefix env cst
         end
       in
       fst (expand_and_effect#visit_complete_command_list Env.zero cst)
