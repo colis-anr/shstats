@@ -225,16 +225,16 @@ module Effect = struct
       bind=Env.zero
     }
 
-  let from_env e = {
-    isnull = false;
-    vars = StringTopSet.empty;
-    bind = e
-    }
-
   let restore_binding env e = {
       isnull = false;
       vars = e.vars;
       bind = env
+    }
+
+  let drop_binding e = {
+      isnull = false;
+      vars = e.vars;
+      bind = Env.zero
     }
 
   let to_string {isnull=isnull;vars=vars;bind=bind} =
@@ -400,6 +400,46 @@ module Self : Analyzer.S = struct
                )
 
           (**
+             When expanding a conditional we first expand the
+             condition, and obtain any assignments done by the
+             condition. Then we can in parallel expand the then-part
+             and, when present, the else part. If both then and else part
+             are present then we take the plus of their effects, if the
+             else part is absent we take the effect of the else part 
+             but remove its variable binding as we cannot know whether the
+             then part is really executed.          
+           *)
+                     
+          method! visit_if_clause env cst = match cst with
+            | IfClause_If_CompoundList_Then_CompoundList_ElsePart_Fi 
+              (compound_list1',compound_list2',else_part') ->
+               let (cv',ce) = self#visit_compound_list' env compound_list1'
+               in
+               let (tv',te) = self#visit_compound_list'
+                                (Effect.compose_env env ce) compound_list2'
+               and (ev',ee) = self#visit_else_part'
+                                (Effect.compose_env env ce) else_part'
+               in
+               (
+                 IfClause_If_CompoundList_Then_CompoundList_ElsePart_Fi
+                   (cv',tv',ev')
+               ,
+                 Effect.compose ce (Effect.plus te ee)
+               )
+            | IfClause_If_CompoundList_Then_CompoundList_Fi(cl1',cl2') ->
+               let (cv',ce) = self#visit_compound_list' env cl1'
+               in
+               let (tv',te) = self#visit_compound_list'
+                                (Effect.compose_env env ce) cl2'
+               in
+               (
+                 IfClause_If_CompoundList_Then_CompoundList_Fi(cv',tv')
+               ,
+                 Effect.compose ce (Effect.drop_binding te)
+               )
+               
+
+          (**
             The sequential constructs of shell where we have to propagate
             the effect of assignments from left to right.
            *)
@@ -464,6 +504,8 @@ module Self : Analyzer.S = struct
               | CmdPrefix_CmdPrefix_IoRedirect (_)
               | CmdPrefix_AssignmentWord (_)
               -> super#visit_cmd_prefix env cst
+               
+               
         end
       in
       fst (expand_and_effect#visit_complete_command_list Env.zero cst)
