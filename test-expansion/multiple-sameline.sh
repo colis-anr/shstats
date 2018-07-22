@@ -1,7 +1,4 @@
 #!/bin/sh
 
-f() {
-    echo true
-}
-x=2 y=3 z=4 f
+x=2 y=3 z=4 : /bin/true
 echo $x $y

@@ -1,0 +1,190 @@
+[
+  [
+    "CompleteCommand_CList",
+    [
+      "CList_AndOr",
+      [
+        "AndOr_Pipeline",
+        [
+          "Pipeline_PipeSequence",
+          [
+            "PipeSequence_Command",
+            [
+              "Command_SimpleCommand",
+              [
+                "SimpleCommand_CmdPrefix",
+                [
+                  "CmdPrefix_AssignmentWord",
+                  [ [ "Name", "x" ], [ "Word", "1", [] ] ]
+                ]
+              ]
+            ]
+          ]
+        ]
+      ]
+    ]
+  ],
+  [
+    "CompleteCommand_CList",
+    [
+      "CList_AndOr",
+      [
+        "AndOr_Pipeline",
+        [
+          "Pipeline_PipeSequence",
+          [
+            "PipeSequence_Command",
+            [
+              "Command_SimpleCommand",
+              [
+                "SimpleCommand_CmdName_CmdSuffix",
+                [
+                  "CmdName_Word",
+                  [ "Word", "echo", [ [ "WordName", "echo" ] ] ]
+                ],
+                [ "CmdSuffix_Word", [ "Word", "1", [] ] ]
+              ]
+            ]
+          ]
+        ]
+      ]
+    ]
+  ],
+  [
+    "CompleteCommand_CList",
+    [
+      "CList_AndOr",
+      [
+        "AndOr_Pipeline",
+        [
+          "Pipeline_PipeSequence",
+          [
+            "PipeSequence_Command",
+            [
+              "Command_FunctionDefinition",
+              [
+                "FunctionDefinition_Fname_Lparen_Rparen_LineBreak_FunctionBody",
+                [ "Fname_Name", [ "Name", "f" ] ],
+                [ "LineBreak_Empty" ],
+                [
+                  "FunctionBody_CompoundCommand",
+                  [
+                    "CompoundCommand_BraceGroup",
+                    [
+                      "BraceGroup_LBrace_CompoundList_RBrace",
+                      [
+                        "CompoundList_NewLineList_Term_Separator",
+                        [ "NewLineList_NewLine" ],
+                        [
+                          "Term_Term_Separator_AndOr",
+                          [
+                            "Term_AndOr",
+                            [
+                              "AndOr_Pipeline",
+                              [
+                                "Pipeline_PipeSequence",
+                                [
+                                  "PipeSequence_Command",
+                                  [
+                                    "Command_SimpleCommand",
+                                    [
+                                      "SimpleCommand_CmdPrefix",
+                                      [
+                                        "CmdPrefix_AssignmentWord",
+                                        [
+                                          [ "Name", "y" ],
+                                          [ "Word", "2", [] ]
+                                        ]
+                                      ]
+                                    ]
+                                  ]
+                                ]
+                              ]
+                            ]
+                          ],
+                          [
+                            "Separator_NewLineList",
+                            [ "NewLineList_NewLine" ]
+                          ],
+                          [
+                            "AndOr_Pipeline",
+                            [
+                              "Pipeline_PipeSequence",
+                              [
+                                "PipeSequence_Command",
+                                [
+                                  "Command_SimpleCommand",
+                                  [
+                                    "SimpleCommand_CmdName_CmdSuffix",
+                                    [
+                                      "CmdName_Word",
+                                      [
+                                        "Word",
+                                        "echo",
+                                        [ [ "WordName", "echo" ] ]
+                                      ]
+                                    ],
+                                    [
+                                      "CmdSuffix_CmdSuffix_Word",
+                                      [
+                                        "CmdSuffix_Word",
+                                        [
+                                          "Word",
+                                          "$x",
+                                          [ [ "WordLiteral", "$x" ] ]
+                                        ]
+                                      ],
+                                      [ "Word", "2", [] ]
+                                    ]
+                                  ]
+                                ]
+                              ]
+                            ]
+                          ]
+                        ],
+                        [
+                          "Separator_NewLineList",
+                          [ "NewLineList_NewLine" ]
+                        ]
+                      ]
+                    ]
+                  ]
+                ]
+              ]
+            ]
+          ]
+        ]
+      ]
+    ]
+  ],
+  [
+    "CompleteCommand_CList",
+    [
+      "CList_AndOr",
+      [
+        "AndOr_Pipeline",
+        [
+          "Pipeline_PipeSequence",
+          [
+            "PipeSequence_Command",
+            [
+              "Command_SimpleCommand",
+              [
+                "SimpleCommand_CmdName_CmdSuffix",
+                [
+                  "CmdName_Word",
+                  [ "Word", "echo", [ [ "WordName", "echo" ] ] ]
+                ],
+                [
+                  "CmdSuffix_CmdSuffix_Word",
+                  [ "CmdSuffix_Word", [ "Word", "1", [] ] ],
+                  [ "Word", "$y", [ [ "WordLiteral", "$y" ] ] ]
+                ]
+              ]
+            ]
+          ]
+        ]
+      ]
+    ]
+  ]
+]
