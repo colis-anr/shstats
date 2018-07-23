@@ -439,6 +439,25 @@ module Self : Analyzer.S = struct
                )
                
 
+          (** In absence of a fixed-point construction we don't know in
+              which contexts the condition and the  body of the while 
+              loop are executed. Hence, we expand the condition in an
+              empty environment, and the body in the environment obtained
+              by expansion of the condition. We return the effect of both
+              without the bindings they may create.
+           *)
+          method! visit_while_clause env cst = match cst with
+            | WhileClause_While_CompoundList_DoGroup (cl',do_group') ->
+               let (cv',ce) = self#visit_compound_list' Env.zero cl'
+               in
+               let (de',de) = self#visit_do_group' ce.Effect.bind do_group'
+               in
+               (
+                 WhileClause_While_CompoundList_DoGroup(cv',de')
+               ,
+                 Effect.drop_binding (Effect.plus ce de)
+               )
+
           (**
             The sequential constructs of shell where we have to propagate
             the effect of assignments from left to right.
