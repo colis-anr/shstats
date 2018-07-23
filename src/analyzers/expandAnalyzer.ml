@@ -117,28 +117,32 @@ module Env = struct
       e1
       e2
 
-  (* FIXME: word fragments *)
-  let expand_variable env (Word (w, _)) =
+  let expand_variables env (Word (w, w_cst)) =
     let re_parname =
       "[a-zA-Z_][a-zA-Z_0-9@*?$!]*" in
     let re_parameter =
       "\\$\\(" ^ re_parname ^ "\\)" ^
-      "\\|\\${\\(" ^ re_parname ^ "\\)}" in
-    let extract_var s =
-      try
-        Str.matched_group 1 s
-      with Not_found ->
-        Str.matched_group 2 s in
-    let lookup_var s =
-      try
-	StringMap.find (extract_var s) env
-      with Not_found ->
-	s
-    in
-    Word (Str.(global_substitute (regexp re_parameter) lookup_var w), [])
+        "\\|\\${\\(" ^ re_parname ^ "\\)}" in
+    let expand_inside_word w =
+      let extract_var s =
+        try
+          Str.matched_group 1 s
+        with Not_found ->
+          Str.matched_group 2 s in
+      let lookup_var s =
+        try
+	  StringMap.find (extract_var s) env
+        with Not_found ->
+	  s
+      in
+      Str.global_substitute (Str.regexp re_parameter) lookup_var w
+    (* FIXME as soon as morbig builds a proper word_cst *)
+    and expand_word_component wc = wc
+
+    in Word (expand_inside_word w,[])
 
   let ground_instance env w =
-    let w_instance = expand_variable env w
+    let w_instance = expand_variables env w
     in if is_expandable (unWord w_instance)
        then None
        else Some w_instance
