@@ -17,84 +17,77 @@ open FunctionsAnalyzer
 open AssignmentAnalyzer
 open TestAnalyzer
 
-module ProgressLine =
-  struct
-    type t =
-      { name : string ;
-        total : int ;
-        mutable curr : int }
+(* Inputs *)
 
-    let create name total =
-      { name ; total ; curr = 0 }
+let load_morbig_file filename =
+  let cin = open_in filename in
+  let (_, csts) : string * Libmorbig.CST.complete_command_list =
+    input_value cin in
+  close_in cin;
+  csts
 
-    let percentage ?(scale=100) l =
-      ExtPervasives.percentage_i ~scale l.curr l.total
+let load_file filename =
+  if Filename.check_suffix filename ".morbig" then
+    (
+      let csts = load_morbig_file filename in
+      Some (Filename.chop_suffix filename ".morbig", csts)
+    )
+  else
+    (
+      try
+        Some (filename, Libmorbig.API.parse_file filename)
 
-    let eprint l =
-      let open Format in
-      eprintf "\r%s%s%s[%s%s] %3d%%@?"
-        l.name
-        (String.make (28 - String.length l.name) ' ')
-        (String.make 5 ' ')
-        (String.make (percentage ~scale:40 l) '=')
-        (String.make (40 - percentage ~scale:40 l) ' ')
-        (percentage l)
+      with
+        _ ->
+        Format.eprintf "%s: parse error@." filename;
+        None
+    )
 
-    let close l =
-      eprint l;
-      Format.eprintf "@."
+(* Helpers *)
 
-    let update l i =
-      l.curr <- i;
-      eprint l
-  end
-
-let process = function
-  | None -> ()
-  | Some (filename, csts) ->
-     Analyzer.process_script filename csts
+let list_of_option_list l =
+  let rec aux acc = function
+    | [] -> acc
+    | None :: t -> aux acc t
+    | Some h :: t -> aux (h :: acc) t
+  in
+  aux [] l |> List.rev
 
 let () =
   Options.register_analyzers_options (Analyzer.options ());
   Options.parse_command_line ();
-
-  Format.eprintf "Reading file list... @?";
   let files = Options.files () in
-  let number_of_files = List.length files in
-  Format.eprintf "%d files found@." number_of_files;
 
-  let progress_line = ProgressLine.create "Parsing files..." number_of_files in
+  (* Parse files *)
+
   let files =
-    List.mapi
-      (fun i (_, filename) ->
-        ProgressLine.update progress_line (i + 1);
-        if Filename.check_suffix filename ".morbig" then
-          (
-            let cin = open_in filename in
-            let (_, csts) : string * Libmorbig.CST.complete_command list = input_value cin in
-            close_in cin;
-            Some (Filename.chop_suffix filename ".morbig", csts)
-          )
-        else
-          (
-            try
-              Some (filename, Libmorbig.API.parse_file filename)
-            with
-              _ ->
-              Format.eprintf "%s: parse error@." filename;
-              None
-      ))
+    Progress.List.map
+      "Parsing..."
+      (fun (_, filename) -> load_file filename)
       files
   in
-  ProgressLine.close progress_line;
+  let files = list_of_option_list files in
 
-  let progress_line = ProgressLine.create "Analyzing files..." number_of_files in
-  List.iteri
-    (fun i file ->
-      ProgressLine.update progress_line (i + 1);
-      process file)
+  (* Expand files *)
+
+  let files =
+    if !Options.expander then
+      Progress.List.map
+        "Expanding..."
+        (fun (filename, csts) -> (filename, Expander.expand csts))
+        files
+    else
+      files
+  in
+
+  (* Give all the files to the analyzers *)
+
+  Progress.List.iter
+    "Analyzing..."
+    (fun (filename, csts) -> Analyzer.process_script filename csts)
     files;
-  ProgressLine.close progress_line;
+
+  (* Create the report and end *)
 
   Format.eprintf "Creating report...@.";
   let report = Report.create "Statistics Report" in

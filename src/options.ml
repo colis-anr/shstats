@@ -6,26 +6,43 @@
 (*  under the terms of the GNU General Public License, version 3.         *)
 (**************************************************************************)
 
-let list_of_files = ref ""
+let list_of_files = ref "-"
 let report_path = ref ""
+let expander = ref true
+
+let set reference value () =
+  reference := value
 
 let analyzers_options = ref []
 let register_analyzers_options l =
   analyzers_options := l
+
+(* All options *)
+  
 let options () =
   ("--report-path",
    Arg.Set_string report_path,
    "PATH Put the report in PATH")
   ::
+    ("--from-stdin",
+     Arg.Unit (set list_of_files "-"),
+     " Get the list of files from standard input (default)")
+  ::
     ("--from-file",
      Arg.Set_string list_of_files,
      "FILE Get the list of files from FILE")
   ::
-    ("--from-stdin",
-     Arg.Unit (fun () -> list_of_files := "-"),
-     " Get the list of files from standard input")
-  :: !analyzers_options
-  |> List.sort (fun (o1, _, _) (o2, _, _) -> compare o1 o2)
+    ("--expander",
+     Arg.Unit (set expander true),
+     " Enable static expansion of variables (default)")
+  ::
+    ("--no-expander",
+     Arg.Unit (set expander false),
+     " Disable static expansion of variables")
+  ::
+    (!analyzers_options
+     |> List.sort (fun (o1, _, _) (o2, _, _) -> compare o1 o2))
+
   |> Arg.align
 
 let usage_message =
@@ -48,7 +65,7 @@ let parse_command_line () =
     failwith "--report-path is mandatory";
   if Shell.test_e !report_path then
     failwith (Format.sprintf "The report path (%s) must not exist." !report_path)
-  
+
 let files =
   let all_files = ref None in
   fun () ->

@@ -1,0 +1,19 @@
+#!/bin/sh
+testdir=test-expansion
+\rm -r dummyreport
+find $testdir -name "*.sh" | \
+	morbig --as simple --from-stdin
+find $testdir -name "*.sh" | \
+	 bin/shstats --enable-expander --from-stdin --report-path dummyreport
+\rm -r dummyreport
+cd $testdir
+for f in *.sh; do
+    if [ ! -e $f.expected ]; then
+	echo "no expected file for $f"
+    else
+	if $(grep -q $f.expanded $f.expected); then
+	    grep -u $f.expanded $f.expected
+	fi
+    fi
+done
+echo "expanded files are in the directory $testdir."
