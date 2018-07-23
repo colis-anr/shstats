@@ -48,6 +48,17 @@ let assigned_by_word w =
      in collect_from 0
 ;;
 
+(* returns a list of the words in in a [cmd_suffix] in reverse order. *)
+let rec cmd_suffix_to_list = function
+  | CmdSuffix_IoRedirect (_) ->
+     []
+  | CmdSuffix_CmdSuffix_IoRedirect (cmd_suffix',io_redirect') ->
+     cmd_suffix_to_list cmd_suffix'.value
+  | CmdSuffix_Word word' ->
+     [unWord word'.value]
+  | CmdSuffix_CmdSuffix_Word (cmd_suffix',word')  ->
+     (unWord word'.value) :: cmd_suffix_to_list cmd_suffix'.value
+    
 (* check whether [s] is possibly expandable by parameter or sub-shell
 expansion *)
 let is_expandable s = String.contains s '$' || String.contains s '`'
@@ -258,9 +269,19 @@ module Self : Analyzer.S = struct
           let add s = set := StringSet.add s !set
         end
       in
-      let effect_of_simple_command env pre_effect cmd cmd_effect suf_effect =
-        (* FIXME: effect of read etc. *)
-        if is_expandable cmd || Fncts.is cmd
+      let effect_of_simple_command
+            env pre_effect cmd cmd_effect sufopt suf_effect =
+        if cmd = "read"
+        then match sufopt with
+             | None -> Effect.zero
+             | Some suf ->
+                let args = cmd_suffix_to_list suf.value
+                in match args with
+                   | [] -> Effect.zero
+                   | h::r -> if h="-r"
+                             then Effect.from_varlist r
+                             else Effect.from_varlist args
+        else if is_expandable cmd || Fncts.is cmd
         then 
           (* [cmd] might be (expanded to) the name of a visible
              function. So we assume the worst. *)
@@ -324,7 +345,7 @@ module Self : Analyzer.S = struct
              command, or suffix of a simple commans do not take effect
              in the simple command itself. Hence we may expand all the
              parts in parallel, and pass everyting (or zero) to the
-             function [effect_of_simple_coammand].
+             function [effect_of_simple_command].
            *)
             
           method! visit_simple_command env cst =
@@ -337,7 +358,7 @@ module Self : Analyzer.S = struct
                (
                  SimpleCommand_CmdPrefix_CmdWord_CmdSuffix (prev',cwv',sufv')
                ,
-                 effect_of_simple_command env pree cmd cwe sufe
+                 effect_of_simple_command env pree cmd cwe (Some sufv') sufe
                )
             | SimpleCommand_CmdPrefix_CmdWord (pre',cw') ->
                let (prev',pree) = self#visit_cmd_prefix' env pre'
@@ -346,7 +367,7 @@ module Self : Analyzer.S = struct
                (
                  SimpleCommand_CmdPrefix_CmdWord (prev',cwv')
                ,
-                 effect_of_simple_command env pree cmd cwe self#zero
+                 effect_of_simple_command env pree cmd cwe None self#zero
                )
             | SimpleCommand_CmdPrefix pre' ->
                let (prev',pree) = self#visit_cmd_prefix' env pre'
@@ -363,7 +384,8 @@ module Self : Analyzer.S = struct
                (
                  SimpleCommand_CmdName_CmdSuffix (nam',sufv')
                ,
-                 effect_of_simple_command env self#zero cmd self#zero sufe
+                 effect_of_simple_command env self#zero cmd self#zero
+                   (Some sufv') sufe
                )
             | SimpleCommand_CmdName nam' ->
                let (cnv',cne) = self#visit_cmd_name' env nam' in 
@@ -372,7 +394,7 @@ module Self : Analyzer.S = struct
                (
                  SimpleCommand_CmdName cnv'
                ,
-                 effect_of_simple_command env self#zero cmd cne self#zero
+                 effect_of_simple_command env self#zero cmd cne None self#zero
                )
 
           (** 
