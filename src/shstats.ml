@@ -89,10 +89,12 @@ let () =
 
   (* Give all the files to the analyzers *)
 
-  Progress.List.iter
-    "Analyzing CSTs..."
-    (fun (filename, csts) -> Analyzer.process_script filename csts)
-    files;
+  Analyzer.process_scripts files;
+  
+  (* Progress.List.iter
+   *   "Analyzing CSTs..."
+   *   (fun (filename, csts) -> Analyzer.process_script filename csts)
+   *   files; *)
 
   (* Create the report and end *)
 
