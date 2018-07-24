@@ -15,16 +15,15 @@ let options = []
 (* FIXME: prefix/suffix? *)
 (* FIXME: better name *)
 type location_simple =
-  Prefix | Suffix | Both | PrefixOnly
+  Prefix | Suffix | Both
 type location =
-  Simple of location_simple | Compound | Function
+  Assignment | Compound | Function | Simple of location_simple
 
 type result =
   { filename : string ;
     location : location ;
     content : io_redirect' list }
 
-(* FIXME: lists are really not efficient *)
 let results : result list ref = ref []
 
 let cmd_prefix_to_io_redirect_list cmd_prefix' =
@@ -118,7 +117,7 @@ let process_script filename csts =
               let content = cmd_prefix_to_io_redirect_list cmd_prefix' in
               if content = []
               then []
-              else [{ filename ; location = Simple PrefixOnly ; content }]
+              else [{ filename ; location = Assignment ; content }]
             )
          | SimpleCommand_CmdName_CmdSuffix (_, cmd_suffix') ->
             (
@@ -131,10 +130,52 @@ let process_script filename csts =
         (super#visit_simple_command () simple_command)
     end in
   visitor#visit_complete_command_list () csts
-  |> ((@) !results)
+  |> (fun file_results -> file_results @ !results)
   |> ((:=) results)
+
+let output_file_list report file_list =
+  List.iter
+    (fun result ->
+      Report.add report "- %s\n"
+        (Report.link_to_source report result.filename))
+    file_list
 
 let output_report report =
   Report.add
     report
-    "Redirections@."
+    "- %d io_redirect lists found\n" (List.length !results);
+
+  (* by location *)
+
+  Report.add report "* by location\n";
+
+  Report.add report "** in assignments\n";
+  !results
+  |> List.filter (fun result -> result.location = Assignment)
+  |> output_file_list report;
+
+  Report.add report "** in compound commands\n";
+  !results
+  |> List.filter (fun result -> result.location = Compound)
+  |> output_file_list report;
+
+  Report.add report "** in functions\n";
+  !results
+  |> List.filter (fun result -> result.location = Function)
+  |> output_file_list report;
+
+  Report.add report "** in simple commands\n";
+  Report.add report "*** in the prefix\n";
+  !results
+  |> List.filter (fun result -> result.location = Simple Prefix)
+  |> output_file_list report;
+
+  Report.add report "*** in the suffix\n";
+  !results
+  |> List.filter (fun result -> result.location = Simple Suffix)
+  |> output_file_list report;
+
+  Report.add report "*** in both the prefix and the suffix\n";
+  !results
+  |> List.filter (fun result -> result.location = Simple Both)
+  |> output_file_list report
