@@ -26,6 +26,8 @@ type result =
 
 let results : result list ref = ref []
 
+(* ===================== [ Helpers about redirections ] ===================== *)
+                              
 let cmd_prefix_to_io_redirect_list cmd_prefix' =
   let rec aux acc = function
     | CmdPrefix_IoRedirect io_redirect' ->
@@ -61,6 +63,41 @@ let redirect_list_to_io_redirect_list redirect_list' =
   in
   aux [] redirect_list'.value
 
+type kind =
+  | Input
+  | Output
+  | OutputClobber
+  | OutputAppend
+  | DuplicateInput
+  | DuplicateOutput
+  | InputOutput
+  | Here
+  | HereStripped
+  
+let io_redirect_to_kind (io_redirect' : io_redirect') : kind =
+  match io_redirect'.value with
+  | IoRedirect_IoFile io_file'
+  | IoRedirect_IoNumber_IoFile (_, io_file') ->
+     (
+       match io_file'.value with
+       | IoFile_Less_FileName _ -> Input
+       | IoFile_LessAnd_FileName _ -> DuplicateInput
+       | IoFile_Great_FileName _ -> Output
+       | IoFile_GreatAnd_FileName _ -> DuplicateOutput
+       | IoFile_DGreat_FileName _ -> OutputAppend
+       | IoFile_LessGreat_FileName _ -> InputOutput
+       | IoFile_Clobber_FileName _ -> OutputClobber
+     )
+  | IoRedirect_IoHere io_here'
+  | IoRedirect_IoNumber_IoHere (_, io_here') ->
+     (
+       match io_here'.value with
+       | IoHere_DLess_HereEnd _ -> Here
+       | IoHere_DLessDash_HereEnd _ -> HereStripped
+     )
+  
+(* =========================== [ Process Script ] =========================== *)
+  
 let process_script filename csts =
   let visitor = object (self)
     inherit [_] reduce as super
@@ -140,6 +177,8 @@ let output_file_list report file_list =
         (Report.link_to_source report result.filename))
     file_list
 
+(* =========================== [ Output Report ] ============================ *)
+
 let output_report report =
   Report.add
     report
@@ -165,6 +204,7 @@ let output_report report =
   |> output_file_list report;
 
   Report.add report "** in simple commands\n";
+
   Report.add report "*** in the prefix\n";
   !results
   |> List.filter (fun result -> result.location = Simple Prefix)
@@ -178,4 +218,60 @@ let output_report report =
   Report.add report "*** in both the prefix and the suffix\n";
   !results
   |> List.filter (fun result -> result.location = Simple Both)
+  |> output_file_list report;
+
+  (* by kind *)
+
+  Report.add report "* by kind\n";
+
+  let involves_kind kind result =
+    List.find_opt
+      (fun r -> io_redirect_to_kind r = kind)
+      result.content
+    <> None
+  in
+  
+  Report.add report "** =<= (input)\n";
+  !results
+  |> List.filter (involves_kind Input)
+  |> output_file_list report;
+  
+  Report.add report "** =>= (output)\n";
+  !results
+  |> List.filter (involves_kind Output)
+  |> output_file_list report;
+
+  Report.add report "** =>|= (output, clobber)\n";
+  !results
+  |> List.filter (involves_kind OutputClobber)
+  |> output_file_list report;
+
+  Report.add report "** =>>= (append output)\n";
+  !results
+  |> List.filter (involves_kind OutputAppend)
+  |> output_file_list report;
+
+  Report.add report "** =<<= (here document)\n";
+  !results
+  |> List.filter (involves_kind Here)
+  |> output_file_list report;
+
+  Report.add report "** =<<-= (stripped here document)\n";
+  !results
+  |> List.filter (involves_kind HereStripped)
+  |> output_file_list report;
+
+  Report.add report "** =<&= (duplicate input)\n";
+  !results
+  |> List.filter (involves_kind DuplicateInput)
+  |> output_file_list report;
+
+  Report.add report "** =>&= (duplicate output)\n";
+  !results
+  |> List.filter (involves_kind DuplicateOutput)
+  |> output_file_list report;
+
+  Report.add report "** =<>= (input and output)\n";
+  !results
+  |> List.filter (involves_kind InputOutput)
   |> output_file_list report
