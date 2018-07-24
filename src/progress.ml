@@ -29,30 +29,45 @@ let spaces n =
 let bar n =
   if n = 0 then "" else (String.make (n - 1) '=') ^ ">"
 
+let time_to_string t =
+  (* takes a time in milliseconds and return a 3-chars string *)
+  if t < 60. then
+    string_of_int (int_of_float (0.5 +. t)) ^ "s"
+  else if t < 3600. then
+    string_of_int (int_of_float (0.5 +. t /. 60.)) ^ "m"
+  else
+    string_of_int (int_of_float (0.5 +. t /. 3600.)) ^ "h"
+
 (* Core *)
 
 type t =
   { name : string ;
     mutable curr : int ; total : int ;
+    start : float ; mutable elapsed : float ;
     len_txt : int ; len_int : int ; len_bar : int ; refresh : int }
 
 let create name total =
   let term_cols = term_cols () in
   let len_int = int_length total in
   let len_txt = term_cols / 3 in
-  let min_len_right = len_int * 2 + 10 in
-  (* 4 for the percentage, 6 for spaces, / and [] *)
+  let min_len_right = len_int * 2 + 14 in
+  (* 3 for the time, 4 for the percentage, 7 for spaces, / and [] *)
   let len_bar = term_cols - len_txt - min_len_right in
   (* len_bar might very well be negative *)
-  { name ; curr = 0 ; total ; len_txt ; len_int ; len_bar ; refresh = total/len_bar }
+  let start = Unix.gettimeofday () in
+  { name ;
+    curr = 0 ; total ;
+    start ; elapsed = 0. ;
+    len_txt ; len_int ; len_bar ; refresh = total/len_bar }
 
 let percentage ?(scale=100) l =
   ExtPervasives.percentage_i ~scale l.curr l.total
 
 let eprint l =
   let open Format in
-  eprintf "\r%s%s %s%d/%d [%s%s] %3d%%@?"
+  eprintf "\r%s%s %s %s%d/%d [%s%s] %3d%%@?"
     l.name (spaces (l.len_txt - String.length l.name))
+    (time_to_string l.elapsed)
     (spaces (l.len_int - int_length l.curr)) l.curr l.total
     (bar (percentage ~scale:l.len_bar l)) (spaces (l.len_bar - percentage ~scale:l.len_bar l))
     (percentage l)
@@ -64,7 +79,10 @@ let close l =
 let incr l =
   l.curr <- l.curr + 1;
   if l.curr mod l.refresh = 0 || l.curr >= l.total then
-    eprint l
+    (
+      l.elapsed <- Unix.gettimeofday () -. l.start;
+      eprint l
+    )
 
 (* Higher-level *)
 
