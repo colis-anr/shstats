@@ -247,152 +247,146 @@ let canonical_first_arguments = [
     "upgrade"
   ]
 
-module Self : Analyzer.S = struct
+let options = []
 
-  let options = []
+let name = "test"
 
-  let name = "test"
+let parsing_errors = ref []
+let count_uniops = new stringcounter
+let count_binops = new stringcounter
+let count_contest = ref 0
+let count_testinvocations = ref 0
+let scripts_with_complex_tests = ref NameSet.empty
+let count_complex_tests = ref 0
+let count_dollarone = new stringcounter
+let scripts_with_strange_dollarone = new indexed_sets
 
-  let parsing_errors = ref []
-  let count_uniops = new stringcounter
-  let count_binops = new stringcounter
-  let count_contest = ref 0
-  let count_testinvocations = ref 0
-  let scripts_with_complex_tests = ref NameSet.empty
-  let count_complex_tests = ref 0
-  let count_dollarone = new stringcounter
-  let scripts_with_strange_dollarone = new indexed_sets
+(* indicates whether we are in a function definition *)
+let in_fundef = ref false
 
-  (* indicates whether we are in a function definition *)
-  let in_fundef = ref false
+let process_script filename csts =
 
-  let process_script filename csts =
-
-    let rec process_expr = function
-      | Andtest (e1,e2) -> process_expr e1; process_expr e2
-      | Ortest (e1,e2) -> process_expr e1; process_expr e2
-      | Onetest l -> process_lit l
-    and process_lit = function
-      | Postest a -> process_atom a
-      | Negtest a -> process_atom a
-    and process_atom = function
-      | Bintest (op,left,right) -> begin
-          count_binops#incr(op);
-          if not (!in_fundef) &&
-               (op = "=" || op = "!=") && (left="$1"||right="$1")
-          then let otherarg =
-                 if left = "$1" then right else left
-               in begin
-                   count_dollarone#incr(otherarg);
-                   if not (List.mem otherarg canonical_first_arguments)
-                   then
-                     scripts_with_strange_dollarone#add otherarg filename
-                 end
-        end
-      | Unitest (op,_) -> count_uniops#incr(op)
-      | Contest _ -> incr count_contest
-      | Partest e -> process_expr e
+  let rec process_expr = function
+    | Andtest (e1,e2) -> process_expr e1; process_expr e2
+    | Ortest (e1,e2) -> process_expr e1; process_expr e2
+    | Onetest l -> process_lit l
+  and process_lit = function
+    | Postest a -> process_atom a
+    | Negtest a -> process_atom a
+  and process_atom = function
+    | Bintest (op,left,right) -> begin
+        count_binops#incr(op);
+        if not (!in_fundef) &&
+             (op = "=" || op = "!=") && (left="$1"||right="$1")
+        then let otherarg =
+               if left = "$1" then right else left
+             in begin
+                 count_dollarone#incr(otherarg);
+                 if not (List.mem otherarg canonical_first_arguments)
+                 then
+                   scripts_with_strange_dollarone#add otherarg filename
+               end
+      end
+    | Unitest (op,_) -> count_uniops#incr(op)
+    | Contest _ -> incr count_contest
+    | Partest e -> process_expr e
+  in
+  
+  let register_test filename invocation arguments =
+    let arguments_unquoted = List.map UnQuote.on_string arguments
+    and is_bracket = (invocation = "[" )
     in
-    
-    let register_test filename invocation arguments =
-      let arguments_unquoted = List.map UnQuote.on_string arguments
-      and is_bracket = (invocation = "[" )
+    incr count_testinvocations;
+    try
+      let ast = parse is_bracket (List.map to_token arguments_unquoted)
       in
-      incr count_testinvocations;
-      try
-        let ast = parse is_bracket (List.map to_token arguments_unquoted)
-        in
-        process_expr ast;
-        if has_bool_combinators ast
-        then begin
-            scripts_with_complex_tests :=
-              NameSet.add filename (!scripts_with_complex_tests);
-            incr count_complex_tests
-          end
-      with
-        Parse_error ->
-        parsing_errors := (filename, invocation, arguments) :: !parsing_errors
-    in
-    
-    let counter = object(self)
-      inherit [_] Libmorbig.CST.iter as super
+      process_expr ast;
+      if has_bool_combinators ast
+      then begin
+          scripts_with_complex_tests :=
+            NameSet.add filename (!scripts_with_complex_tests);
+          incr count_complex_tests
+        end
+    with
+      Parse_error ->
+      parsing_errors := (filename, invocation, arguments) :: !parsing_errors
+  in
+  
+  let counter = object(self)
+                  inherit [_] Libmorbig.CST.iter as super
 
-      method! visit_simple_command () csts =
-        let invocation = extract_command csts in
-        match invocation with
-        | Some s when (s = "test" || s = "[" )
-          -> register_test filename s (extract_arguments csts)
-        | _
-          -> super#visit_simple_command () csts
+                  method! visit_simple_command () csts =
+                    let invocation = extract_command csts in
+                    match invocation with
+                    | Some s when (s = "test" || s = "[" )
+                      -> register_test filename s (extract_arguments csts)
+                    | _
+                      -> super#visit_simple_command () csts
 
-      method! visit_command () csts = match csts with
-        | Command_FunctionDefinition fdef' ->
-           in_fundef := true;
-           self#visit_function_definition' () fdef';
-           in_fundef := false
-        | _ -> super#visit_command () csts
-    end in
-    List.iter (counter#visit_complete_command ()) csts
-                       
-  let output_report report =
-    Report.add report "* Test invocations\n";
-    Report.add report "  Number of test or []: %d\n" !count_testinvocations; 
+                  method! visit_command () csts = match csts with
+                    | Command_FunctionDefinition fdef' ->
+                       in_fundef := true;
+                       self#visit_function_definition' () fdef';
+                       in_fundef := false
+                    | _ -> super#visit_command () csts
+                end in
+  List.iter (counter#visit_complete_command ()) csts
+  
+let output_report report =
+  Report.add report "* Test invocations\n";
+  Report.add report "  Number of test or []: %d\n" !count_testinvocations; 
 
-    Report.add report "** Tests that could not be parsed\n\n";
-    List.iter
-      (function (filename,invocation,arguments) ->
-                Report.add report "    - %s\n    "
-                           (Report.link_to_source report filename);
-                Report.add report "%s " invocation; 
-                List.iter (function s -> Report.add report " %s" s) arguments;
-                Report.add report "\n"
-      )
-      !parsing_errors;
+  Report.add report "** Tests that could not be parsed\n\n";
+  List.iter
+    (function (filename,invocation,arguments) ->
+       Report.add report "    - %s\n    "
+         (Report.link_to_source report filename);
+       Report.add report "%s " invocation; 
+       List.iter (function s -> Report.add report " %s" s) arguments;
+       Report.add report "\n"
+    )
+    !parsing_errors;
 
-    Report.add report "** Unary test operators\n\n";
-    Report.add report "  Operator | Occurrences\n";
-    Report.add report "  ---------+------------\n";
-    count_uniops#iter_ascending (fun (key,number) ->
-        Report.add report "   %5s   | %8d \n" key number);
-    Report.add report "\n";
+  Report.add report "** Unary test operators\n\n";
+  Report.add report "  Operator | Occurrences\n";
+  Report.add report "  ---------+------------\n";
+  count_uniops#iter_ascending (fun (key,number) ->
+      Report.add report "   %5s   | %8d \n" key number);
+  Report.add report "\n";
 
-    Report.add report "** Binary test operators\n\n";
-    Report.add report "  Operator | Occurrences\n";
-    Report.add report "  ---------+------------\n";
-    count_binops#iter_ascending (fun (key,number) ->
-        Report.add report "   %5s   | %8d \n" key number);
-    Report.add report "\n";
+  Report.add report "** Binary test operators\n\n";
+  Report.add report "  Operator | Occurrences\n";
+  Report.add report "  ---------+------------\n";
+  count_binops#iter_ascending (fun (key,number) ->
+      Report.add report "   %5s   | %8d \n" key number);
+  Report.add report "\n";
 
-    Report.add report "** Tests using boolean operators (-a, -o)\n\n";
-    Report.add report "  Number of tests: %d\n" !count_complex_tests;
-    Report.add report "  Number of scripts: %d\n"
-      (NameSet.cardinal !scripts_with_complex_tests);
-    Report.add report "*** Listing of scripts\n\n";
-    NameSet.iter
-      (function filename ->
-         Report.add report "    - %s\n"
-           (Report.link_to_source report filename))
-      !scripts_with_complex_tests;
-    Report.add report "\n";
-    
-    Report.add report "** Comparisons with $1 (outside function definitions)\n\n";
-    Report.add report "  Compared with           | Occurrences\n";
-    Report.add report "  ------------------------+------------\n";
-    count_dollarone#iter_ascending (fun (key,number) ->
-        Report.add report "   %20s   | %8d \n" key number);
-    Report.add report "*** Listing of scripts (canonical arguments for $1 omitted)\n";
-    scripts_with_strange_dollarone#iter
-      (fun key set ->
-        Report.add report "   $1 compared with: %s\n" key;
-        NameSet.iter
-          (function filename ->
-                    Report.add report "   %s\n"
-                               (Report.link_to_source report filename))
-          set;
-        Report.add report "\n"
-      );
-    Report.add report "\n";
-
-end (* module Self = struct ... *)
-
-let install = Analyzer.register (module Self)
+  Report.add report "** Tests using boolean operators (-a, -o)\n\n";
+  Report.add report "  Number of tests: %d\n" !count_complex_tests;
+  Report.add report "  Number of scripts: %d\n"
+    (NameSet.cardinal !scripts_with_complex_tests);
+  Report.add report "*** Listing of scripts\n\n";
+  NameSet.iter
+    (function filename ->
+       Report.add report "    - %s\n"
+         (Report.link_to_source report filename))
+    !scripts_with_complex_tests;
+  Report.add report "\n";
+  
+  Report.add report "** Comparisons with $1 (outside function definitions)\n\n";
+  Report.add report "  Compared with           | Occurrences\n";
+  Report.add report "  ------------------------+------------\n";
+  count_dollarone#iter_ascending (fun (key,number) ->
+      Report.add report "   %20s   | %8d \n" key number);
+  Report.add report "*** Listing of scripts (canonical arguments for $1 omitted)\n";
+  scripts_with_strange_dollarone#iter
+    (fun key set ->
+      Report.add report "   $1 compared with: %s\n" key;
+      NameSet.iter
+        (function filename ->
+           Report.add report "   %s\n"
+             (Report.link_to_source report filename))
+        set;
+      Report.add report "\n"
+    );
+  Report.add report "\n";

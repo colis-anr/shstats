@@ -10,13 +10,6 @@
 
 open Commands
 
-open CommandAnalyzer
-open StructuresAnalyzer
-open MiscAnalyzer
-open FunctionsAnalyzer
-open AssignmentAnalyzer
-open TestAnalyzer
-
 (* Inputs *)
 
 let load_morbig_file filename =
@@ -56,7 +49,15 @@ let list_of_option_list l =
 let () =
   (* Tell the Analyzer engine about all the available analyzers *)
 
-  Analyzer.register (module RedirectionAnalyzer);
+  Analyzer.register_several [
+      (module AssignmentAnalyzer) ;
+      (module CommandAnalyzer) ;
+      (module FunctionAnalyzer) ;
+      (module MiscAnalyzer) ;
+      (module RedirectionAnalyzer) ;
+      (module StructureAnalyzer) ;
+      (module TestAnalyzer) ;
+    ];
 
   (* Parse command line *)
 
