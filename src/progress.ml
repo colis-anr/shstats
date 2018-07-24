@@ -30,7 +30,7 @@ let bar n =
   if n = 0 then "" else (String.make (n - 1) '=') ^ ">"
 
 let time_to_string t =
-  (* takes a time in milliseconds and return a 3-chars string *)
+  (* takes a time in milliseconds and return a string with less than 3 characters *)
   if t < 60. then
     string_of_int (int_of_float (0.5 +. t)) ^ "s"
   else if t < 3600. then
@@ -65,7 +65,7 @@ let percentage ?(scale=100) l =
 
 let eprint l =
   let open Format in
-  eprintf "\r%s%s %s %s%d/%d [%s%s] %3d%%@?"
+  eprintf "\r%s%s %3s %s%d/%d [%s%s] %3d%%@?"
     l.name (spaces (l.len_txt - String.length l.name))
     (time_to_string l.elapsed)
     (spaces (l.len_int - int_length l.curr)) l.curr l.total

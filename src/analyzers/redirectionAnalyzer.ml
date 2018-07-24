@@ -14,8 +14,10 @@ let options = []
 (* where a redirection can occur. *)
 (* FIXME: prefix/suffix? *)
 (* FIXME: better name *)
+type location_simple =
+  Prefix | Suffix | Both | PrefixOnly
 type location =
-  Simple | Compound | Function
+  Simple of location_simple | Compound | Function
 
 type result =
   { filename : string ;
@@ -24,8 +26,8 @@ type result =
 
 (* FIXME: lists are really not efficient *)
 let results : result list ref = ref []
-  
-let cmd_prefix_to_io_redirect_list cmd_prefix =
+
+let cmd_prefix_to_io_redirect_list cmd_prefix' =
   let rec aux acc = function
     | CmdPrefix_IoRedirect io_redirect' ->
        io_redirect' :: acc
@@ -36,9 +38,9 @@ let cmd_prefix_to_io_redirect_list cmd_prefix =
     | CmdPrefix_CmdPrefix_AssignmentWord (cmd_prefix', _) ->
        aux acc cmd_prefix'.value
   in
-  aux [] cmd_prefix
+  aux [] cmd_prefix'.value
 
-let cmd_suffix_to_io_redirect_list cmd_suffix =
+let cmd_suffix_to_io_redirect_list cmd_suffix' =
   let rec aux acc = function
     | CmdSuffix_IoRedirect io_redirect' ->
        io_redirect' :: acc
@@ -49,16 +51,16 @@ let cmd_suffix_to_io_redirect_list cmd_suffix =
     | CmdSuffix_CmdSuffix_Word (cmd_suffix', _) ->
        aux acc cmd_suffix'.value
   in
-  aux [] cmd_suffix
+  aux [] cmd_suffix'.value
 
-let redirect_list_to_io_redirect_list redirect_list =
+let redirect_list_to_io_redirect_list redirect_list' =
   let rec aux acc = function
     | RedirectList_IoRedirect io_redirect' ->
        io_redirect' :: acc
     | RedirectList_RedirectList_IoRedirect (redirect_list', io_redirect') ->
        aux (io_redirect' :: acc) redirect_list'.value
   in
-  aux [] redirect_list
+  aux [] redirect_list'.value
 
 let process_script filename csts =
   let visitor = object (self)
@@ -66,21 +68,67 @@ let process_script filename csts =
 
     method zero : 'a list = []
     method plus (r : 'a list) (s : 'a list) = r @ s
-          
-    method! visit_command () = function
-      | Command_CompoundCommand_RedirectList (compound_command', redirect_list') -> self#zero
-      | _ as command -> super#visit_command () command
 
-    method! visit_function_body () = function
-      | FunctionBody_CompoundCommand_RedirectList (compound_command', redirect_list') -> self#zero
-      | _ as function_body -> super#visit_function_body () function_body
+    method! visit_command () command =
+      self#plus
+        (match command with
+         | Command_CompoundCommand_RedirectList (_, redirect_list') ->
+            (
+              let content = redirect_list_to_io_redirect_list redirect_list' in
+              assert (content <> []);
+              [{ filename ; location = Compound ; content }]
+            )
+         | _ -> self#zero)
+        (super#visit_command () command)
 
-    method! visit_simple_command () = function
-      | SimpleCommand_CmdPrefix_CmdWord_CmdSuffix (cmd_prefix', cmd_word', cmd_suffix') -> self#zero
-      | SimpleCommand_CmdPrefix_CmdWord (cmd_prefix', cmd_word') -> self#zero
-      | SimpleCommand_CmdPrefix cmd_prefix' -> self#zero
-      | SimpleCommand_CmdName_CmdSuffix (cmd_name', cmd_suffix') -> self#zero
-      | SimpleCommand_CmdName cmd_name' -> self#zero
+    method! visit_function_body () function_body =
+      self#plus
+        (match function_body with
+         | FunctionBody_CompoundCommand_RedirectList (_, redirect_list') ->
+            (
+              let content = redirect_list_to_io_redirect_list redirect_list' in
+              assert (content <> []);
+              [{ filename ; location = Function ; content }]
+            )
+         | _ -> self#zero)
+        (super#visit_function_body () function_body)
+
+    method! visit_simple_command () simple_command =
+      self#plus
+        (match simple_command with
+         | SimpleCommand_CmdPrefix_CmdWord_CmdSuffix (cmd_prefix', _, cmd_suffix') ->
+            (
+              let in_prefix = cmd_prefix_to_io_redirect_list cmd_prefix' in
+              let in_suffix = cmd_suffix_to_io_redirect_list cmd_suffix' in
+              match in_prefix, in_suffix with
+              | [], [] -> []
+              | _, [] -> [{ filename ; location = Simple Prefix ; content = in_prefix }]
+              | [], _ -> [{ filename ; location = Simple Suffix ; content = in_suffix }]
+              | _, _ -> [{ filename ; location = Simple Both ; content = in_prefix @ in_suffix }]
+            )
+         | SimpleCommand_CmdPrefix_CmdWord (cmd_prefix', _) ->
+            (
+              let content = cmd_prefix_to_io_redirect_list cmd_prefix' in
+              if content = []
+              then []
+              else [{ filename ; location = Simple Prefix ; content }]
+            )
+         | SimpleCommand_CmdPrefix cmd_prefix' ->
+            (
+              let content = cmd_prefix_to_io_redirect_list cmd_prefix' in
+              if content = []
+              then []
+              else [{ filename ; location = Simple PrefixOnly ; content }]
+            )
+         | SimpleCommand_CmdName_CmdSuffix (_, cmd_suffix') ->
+            (
+              let content = cmd_suffix_to_io_redirect_list cmd_suffix' in
+              if content = []
+              then []
+              else [{ filename ; location = Simple Suffix ; content }]
+            )
+         | _ -> self#zero)
+        (super#visit_simple_command () simple_command)
     end in
   visitor#visit_complete_command_list () csts
   |> ((@) !results)

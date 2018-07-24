@@ -75,7 +75,7 @@ let process_script filename csts =
 let process_scripts scripts =
   foreach_active_analyzer (fun (module A : S) ->
       Progress.List.iter
-        ("Analyzer: "^A.name)
+        ("Analyzing: "^A.name)
         (fun (filename, csts) ->
           A.process_script filename csts)
         scripts)

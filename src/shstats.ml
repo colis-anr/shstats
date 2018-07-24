@@ -69,7 +69,7 @@ let () =
 
   let files =
     Progress.List.map
-      "Parsing files..."
+      "Parsing"
       (fun (_, filename) -> load_file filename)
       files
   in
@@ -80,7 +80,7 @@ let () =
   let files =
     if !Options.expander then
       Progress.List.map
-        "Expanding assignments..."
+        "Expanding"
         (fun (filename, csts) -> (filename, Expander.expand csts))
         files
     else
