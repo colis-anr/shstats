@@ -1,0 +1,277 @@
+(**************************************************************************)
+(*  Copyright (C) 2017,2018 Nicolas Jeannerod, Yann Régis-Gianas,         *)
+(*  Ralf Treinen.                                                         *)
+(*                                                                        *)
+(*  This is free software: you can redistribute it and/or modify it       *)
+(*  under the terms of the GNU General Public License, version 3.         *)
+(**************************************************************************)
+
+open Libmorbig.CST
+
+let name = "redirection"
+let options = []
+
+(* where a redirection can occur. *)
+(* FIXME: prefix/suffix? *)
+(* FIXME: better name *)
+type location_simple =
+  Prefix | Suffix | Both
+type location =
+  Assignment | Compound | Function | Simple of location_simple
+
+type result =
+  { filename : string ;
+    location : location ;
+    content : io_redirect' list }
+
+let results : result list ref = ref []
+
+(* ===================== [ Helpers about redirections ] ===================== *)
+                              
+let cmd_prefix_to_io_redirect_list cmd_prefix' =
+  let rec aux acc = function
+    | CmdPrefix_IoRedirect io_redirect' ->
+       io_redirect' :: acc
+    | CmdPrefix_CmdPrefix_IoRedirect (cmd_prefix', io_redirect') ->
+       aux (io_redirect' :: acc) cmd_prefix'.value
+    | CmdPrefix_AssignmentWord _ ->
+       acc
+    | CmdPrefix_CmdPrefix_AssignmentWord (cmd_prefix', _) ->
+       aux acc cmd_prefix'.value
+  in
+  aux [] cmd_prefix'.value
+
+let cmd_suffix_to_io_redirect_list cmd_suffix' =
+  let rec aux acc = function
+    | CmdSuffix_IoRedirect io_redirect' ->
+       io_redirect' :: acc
+    | CmdSuffix_CmdSuffix_IoRedirect (cmd_suffix', io_redirect') ->
+       aux (io_redirect' :: acc) cmd_suffix'.value
+    | CmdSuffix_Word _ ->
+       acc
+    | CmdSuffix_CmdSuffix_Word (cmd_suffix', _) ->
+       aux acc cmd_suffix'.value
+  in
+  aux [] cmd_suffix'.value
+
+let redirect_list_to_io_redirect_list redirect_list' =
+  let rec aux acc = function
+    | RedirectList_IoRedirect io_redirect' ->
+       io_redirect' :: acc
+    | RedirectList_RedirectList_IoRedirect (redirect_list', io_redirect') ->
+       aux (io_redirect' :: acc) redirect_list'.value
+  in
+  aux [] redirect_list'.value
+
+type kind =
+  | Input
+  | Output
+  | OutputClobber
+  | OutputAppend
+  | DuplicateInput
+  | DuplicateOutput
+  | InputOutput
+  | Here
+  | HereStripped
+  
+let io_redirect_to_kind (io_redirect' : io_redirect') : kind =
+  match io_redirect'.value with
+  | IoRedirect_IoFile io_file'
+  | IoRedirect_IoNumber_IoFile (_, io_file') ->
+     (
+       match io_file'.value with
+       | IoFile_Less_FileName _ -> Input
+       | IoFile_LessAnd_FileName _ -> DuplicateInput
+       | IoFile_Great_FileName _ -> Output
+       | IoFile_GreatAnd_FileName _ -> DuplicateOutput
+       | IoFile_DGreat_FileName _ -> OutputAppend
+       | IoFile_LessGreat_FileName _ -> InputOutput
+       | IoFile_Clobber_FileName _ -> OutputClobber
+     )
+  | IoRedirect_IoHere io_here'
+  | IoRedirect_IoNumber_IoHere (_, io_here') ->
+     (
+       match io_here'.value with
+       | IoHere_DLess_HereEnd _ -> Here
+       | IoHere_DLessDash_HereEnd _ -> HereStripped
+     )
+  
+(* =========================== [ Process Script ] =========================== *)
+  
+let process_script filename csts =
+  let visitor = object (self)
+    inherit [_] reduce as super
+
+    method zero : 'a list = []
+    method plus (r : 'a list) (s : 'a list) = r @ s
+
+    method! visit_command () command =
+      self#plus
+        (match command with
+         | Command_CompoundCommand_RedirectList (_, redirect_list') ->
+            (
+              let content = redirect_list_to_io_redirect_list redirect_list' in
+              assert (content <> []);
+              [{ filename ; location = Compound ; content }]
+            )
+         | _ -> self#zero)
+        (super#visit_command () command)
+
+    method! visit_function_body () function_body =
+      self#plus
+        (match function_body with
+         | FunctionBody_CompoundCommand_RedirectList (_, redirect_list') ->
+            (
+              let content = redirect_list_to_io_redirect_list redirect_list' in
+              assert (content <> []);
+              [{ filename ; location = Function ; content }]
+            )
+         | _ -> self#zero)
+        (super#visit_function_body () function_body)
+
+    method! visit_simple_command () simple_command =
+      self#plus
+        (match simple_command with
+         | SimpleCommand_CmdPrefix_CmdWord_CmdSuffix (cmd_prefix', _, cmd_suffix') ->
+            (
+              let in_prefix = cmd_prefix_to_io_redirect_list cmd_prefix' in
+              let in_suffix = cmd_suffix_to_io_redirect_list cmd_suffix' in
+              match in_prefix, in_suffix with
+              | [], [] -> []
+              | _, [] -> [{ filename ; location = Simple Prefix ; content = in_prefix }]
+              | [], _ -> [{ filename ; location = Simple Suffix ; content = in_suffix }]
+              | _, _ -> [{ filename ; location = Simple Both ; content = in_prefix @ in_suffix }]
+            )
+         | SimpleCommand_CmdPrefix_CmdWord (cmd_prefix', _) ->
+            (
+              let content = cmd_prefix_to_io_redirect_list cmd_prefix' in
+              if content = []
+              then []
+              else [{ filename ; location = Simple Prefix ; content }]
+            )
+         | SimpleCommand_CmdPrefix cmd_prefix' ->
+            (
+              let content = cmd_prefix_to_io_redirect_list cmd_prefix' in
+              if content = []
+              then []
+              else [{ filename ; location = Assignment ; content }]
+            )
+         | SimpleCommand_CmdName_CmdSuffix (_, cmd_suffix') ->
+            (
+              let content = cmd_suffix_to_io_redirect_list cmd_suffix' in
+              if content = []
+              then []
+              else [{ filename ; location = Simple Suffix ; content }]
+            )
+         | _ -> self#zero)
+        (super#visit_simple_command () simple_command)
+    end in
+  visitor#visit_complete_command_list () csts
+  |> (fun file_results -> file_results @ !results)
+  |> ((:=) results)
+
+let output_file_list report file_list =
+  List.iter
+    (fun result ->
+      Report.add report "- %s\n"
+        (Report.link_to_source report result.filename))
+    file_list
+
+(* =========================== [ Output Report ] ============================ *)
+
+let output_report report =
+  Report.add
+    report
+    "- %d io_redirect lists found\n" (List.length !results);
+
+  (* by location *)
+
+  Report.add report "* by location\n";
+
+  Report.add report "** in assignments\n";
+  !results
+  |> List.filter (fun result -> result.location = Assignment)
+  |> output_file_list report;
+
+  Report.add report "** in compound commands\n";
+  !results
+  |> List.filter (fun result -> result.location = Compound)
+  |> output_file_list report;
+
+  Report.add report "** in functions\n";
+  !results
+  |> List.filter (fun result -> result.location = Function)
+  |> output_file_list report;
+
+  Report.add report "** in simple commands\n";
+
+  Report.add report "*** in the prefix\n";
+  !results
+  |> List.filter (fun result -> result.location = Simple Prefix)
+  |> output_file_list report;
+
+  Report.add report "*** in the suffix\n";
+  !results
+  |> List.filter (fun result -> result.location = Simple Suffix)
+  |> output_file_list report;
+
+  Report.add report "*** in both the prefix and the suffix\n";
+  !results
+  |> List.filter (fun result -> result.location = Simple Both)
+  |> output_file_list report;
+
+  (* by kind *)
+
+  Report.add report "* by kind\n";
+
+  let involves_kind kind result =
+    List.find_opt
+      (fun r -> io_redirect_to_kind r = kind)
+      result.content
+    <> None
+  in
+  
+  Report.add report "** =<= (input)\n";
+  !results
+  |> List.filter (involves_kind Input)
+  |> output_file_list report;
+  
+  Report.add report "** =>= (output)\n";
+  !results
+  |> List.filter (involves_kind Output)
+  |> output_file_list report;
+
+  Report.add report "** =>|= (output, clobber)\n";
+  !results
+  |> List.filter (involves_kind OutputClobber)
+  |> output_file_list report;
+
+  Report.add report "** =>>= (append output)\n";
+  !results
+  |> List.filter (involves_kind OutputAppend)
+  |> output_file_list report;
+
+  Report.add report "** =<<= (here document)\n";
+  !results
+  |> List.filter (involves_kind Here)
+  |> output_file_list report;
+
+  Report.add report "** =<<-= (stripped here document)\n";
+  !results
+  |> List.filter (involves_kind HereStripped)
+  |> output_file_list report;
+
+  Report.add report "** =<&= (duplicate input)\n";
+  !results
+  |> List.filter (involves_kind DuplicateInput)
+  |> output_file_list report;
+
+  Report.add report "** =>&= (duplicate output)\n";
+  !results
+  |> List.filter (involves_kind DuplicateOutput)
+  |> output_file_list report;
+
+  Report.add report "** =<>= (input and output)\n";
+  !results
+  |> List.filter (involves_kind InputOutput)
+  |> output_file_list report

@@ -32,6 +32,9 @@ let analyzers : (module S) list ref = ref []
 let register analyzer =
   analyzers := analyzer :: !analyzers
 
+let register_several more_analyzers =
+  analyzers := more_analyzers @ !analyzers
+
 type activation_option =
   | All
   | Subset of (module S) list
@@ -66,9 +69,17 @@ let foreach_active_analyzer f =
 
 let process_script filename csts =
   foreach_active_analyzer (fun (module A : S) ->
-    A.process_script filename csts
-  )
+      A.process_script filename csts
+    )
 
+let process_scripts scripts =
+  foreach_active_analyzer (fun (module A : S) ->
+      Progress.List.iter
+        ("Analyzing: "^A.name)
+        (fun (filename, csts) ->
+          A.process_script filename csts)
+        scripts)
+  
 let output_report report =
   Report.add report "Processed %d files.\n" (List.length (Options.files ()));
   Report.add report "Analysers:\n";

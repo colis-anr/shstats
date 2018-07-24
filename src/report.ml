@@ -114,8 +114,11 @@ let link_to_file target text =
   link "file" target text
 
 let path_to_root report =
-  report.root
-  
+  if has_subreports report then
+    report.root
+  else
+    Filename.dirname report.root
+
 let path_from_root report =
   let path = report.path in
   if has_subreports report

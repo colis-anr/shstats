@@ -10,13 +10,6 @@
 
 open Commands
 
-open CommandAnalyzer
-open StructuresAnalyzer
-open MiscAnalyzer
-open FunctionsAnalyzer
-open AssignmentAnalyzer
-open TestAnalyzer
-
 (* Inputs *)
 
 let load_morbig_file filename =
@@ -54,6 +47,20 @@ let list_of_option_list l =
   aux [] l |> List.rev
 
 let () =
+  (* Tell the Analyzer engine about all the available analyzers *)
+
+  Analyzer.register_several [
+      (module AssignmentAnalyzer) ;
+      (module CommandAnalyzer) ;
+      (module FunctionAnalyzer) ;
+      (module MiscAnalyzer) ;
+      (module RedirectionAnalyzer) ;
+      (module StructureAnalyzer) ;
+      (module TestAnalyzer) ;
+    ];
+
+  (* Parse command line *)
+
   Options.register_analyzers_options (Analyzer.options ());
   Options.parse_command_line ();
   let files = Options.files () in
@@ -62,7 +69,7 @@ let () =
 
   let files =
     Progress.List.map
-      "Parsing..."
+      "Parsing"
       (fun (_, filename) -> load_file filename)
       files
   in
@@ -73,7 +80,7 @@ let () =
   let files =
     if !Options.expander then
       Progress.List.map
-        "Expanding..."
+        "Expanding"
         (fun (filename, csts) -> (filename, Expander.expand csts))
         files
     else
@@ -82,18 +89,20 @@ let () =
 
   (* Give all the files to the analyzers *)
 
-  Progress.List.iter
-    "Analyzing..."
-    (fun (filename, csts) -> Analyzer.process_script filename csts)
-    files;
+  Analyzer.process_scripts files;
+  
+  (* Progress.List.iter
+   *   "Analyzing CSTs..."
+   *   (fun (filename, csts) -> Analyzer.process_script filename csts)
+   *   files; *)
 
   (* Create the report and end *)
 
-  Format.eprintf "Creating report...@.";
+  Format.eprintf "Creating report... @?";
   let report = Report.create "Statistics Report" in
   Analyzer.output_report report;
 
-  Format.eprintf "Writing report on disk...@.";
+  Format.eprintf "Writing it on disk... @?";
   Report.commit report !Options.report_path;
 
-  Format.eprintf "Done! You can now open emacs on %s/index.org@." !Options.report_path
+  Format.eprintf "Done!\nYou can now open emacs on %s/index.org@." !Options.report_path
