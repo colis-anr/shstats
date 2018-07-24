@@ -54,6 +54,12 @@ let list_of_option_list l =
   aux [] l |> List.rev
 
 let () =
+  (* Tell the Analyzer engine about all the available analyzers *)
+
+  Analyzer.register (module RedirectionAnalyzer);
+
+  (* Parse command line *)
+
   Options.register_analyzers_options (Analyzer.options ());
   Options.parse_command_line ();
   let files = Options.files () in

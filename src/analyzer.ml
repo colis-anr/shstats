@@ -32,6 +32,9 @@ let analyzers : (module S) list ref = ref []
 let register analyzer =
   analyzers := analyzer :: !analyzers
 
+let register_several more_analyzers =
+  analyzers := more_analyzers @ !analyzers
+
 type activation_option =
   | All
   | Subset of (module S) list
