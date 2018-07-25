@@ -8,33 +8,41 @@
 
 (** Compute some statistics about a CST. *)
 
+let list_map_filter f l =
+  let rec aux acc = function
+    | [] -> List.rev acc
+    | h :: q ->
+       match f h with
+       | None -> aux acc q
+       | Some x -> aux (x :: acc) q
+  in
+  aux [] l
+
 open Commands
 
 (* Inputs *)
 
-let load_morbig_file filename =
+type input =
+  | Source
+  | Parsed of Libmorbig.CST.complete_command_list
+  | Expanded of Libmorbig.CST.complete_command_list
+  | Loaded of Libmorbig.CST.complete_command_list
+  | Error of string
+
+let cache filename =
+  filename ^ ".shstats-cache"
+
+let load_cache_file filename =
   let cin = open_in filename in
-  let (_, csts) : string * Libmorbig.CST.complete_command_list =
+  let csts : Libmorbig.CST.complete_command_list =
     input_value cin in
   close_in cin;
   csts
 
-let load_file filename =
-  if Filename.check_suffix filename ".morbig" then
-    (
-      let csts = load_morbig_file filename in
-      Some (Filename.chop_suffix filename ".morbig", csts)
-    )
-  else
-    (
-      try
-        Some (filename, Libmorbig.API.parse_file filename)
-
-      with
-        _ ->
-        Format.eprintf "%s: parse error@." filename;
-        None
-    )
+let save_cache_file filename csts =
+  let cout = open_out filename in
+  output_value cout csts;
+  close_out cout
 
 (* Helpers *)
 
@@ -46,9 +54,9 @@ let list_of_option_list l =
   in
   aux [] l |> List.rev
 
-let () =
-  (* Tell the Analyzer engine about all the available analyzers *)
+(* Tell the Analyzer engine about all the available analyzers *)
 
+let () =
   Analyzer.register_several [
       (module AssignmentAnalyzer) ;
       (module CommandAnalyzer) ;
@@ -57,47 +65,143 @@ let () =
       (module RedirectionAnalyzer) ;
       (module StructureAnalyzer) ;
       (module TestAnalyzer) ;
-    ];
+    ]
 
   (* Parse command line *)
 
+let () =
   Options.register_analyzers_options (Analyzer.options ());
-  Options.parse_command_line ();
-  let files = Options.files () in
+  Options.parse_command_line ()
+let files = Options.files ()
 
-  (* Parse files *)
+(* Read file list. If the --cache option is on, see if the cache file
+   exists and load it if it does. *)
 
-  let files =
-    Progress.List.map
-      "Parsing"
-      (fun (_, filename) -> load_file filename)
-      files
-  in
-  let files = list_of_option_list files in
+let cache_files = ref 0
 
-  (* Expand files *)
-
-  let files =
-    if !Options.expander then
+let files =
+  if !Options.cache then
+    (
       Progress.List.map
-        "Expanding"
-        (fun (filename, csts) -> (filename, Expander.expand csts))
+        "Loading cache files"
+        (fun (_, filename) ->
+          if Sys.file_exists (cache filename) then
+            (
+              incr cache_files;
+              (filename, Loaded (load_cache_file (cache filename)))
+            )
+          else
+            (filename, Source))
         files
-    else
+    )
+  else
+    (
+      List.map
+        (fun (_, filename) -> (filename, Source))
+        files
+    )
+
+let () =
+  Format.eprintf "Found %d files" (List.length files);
+  if !Options.cache then
+    Format.eprintf " (%d cached)" !cache_files;
+  Format.eprintf ".@."
+
+(* Parse files that have not been loaded from the cache. *)
+
+let invalid_files = ref 0
+
+let files =
+  let pl = Progress.create "Parsing" (List.length files - !cache_files) in
+  let files =
+    List.map
+      (fun (filename, kind) ->
+        (filename,
+         match kind with
+         | Source ->
+            (
+              Progress.incr pl;
+              try
+                Parsed (Libmorbig.API.parse_file filename)
+              with
+                _ ->
+                incr invalid_files;
+                let msg = "parse error" in
+                Error msg
+            )
+         | Parsed _ | Expanded _ | Error _ -> assert false
+         | Loaded _ -> kind))
       files
   in
+  Progress.close pl;
+  files
 
-  (* Give all the files to the analyzers *)
+let () =
+  if !invalid_files > 0 then
+    Format.eprintf "%d files could not be parsed.@." !invalid_files
 
-  Analyzer.process_scripts files;
-  
-  (* Progress.List.iter
-   *   "Analyzing CSTs..."
-   *   (fun (filename, csts) -> Analyzer.process_script filename csts)
-   *   files; *)
+(* Expand files that have not been loaded from the cache *)
 
-  (* Create the report and end *)
+let files =
+  if !Options.expander && (List.length files - !cache_files - !invalid_files) > 0 then
+    (
+      let pl = Progress.create "Expanding" (List.length files - !cache_files - !invalid_files) in
+      let files =
+        List.map
+          (fun (filename, kind) ->
+            (filename,
+             match kind with
+             | Parsed csts ->
+                Progress.incr pl;
+                Expanded (Expander.expand csts)
+             | Source | Expanded _ -> assert false
+             | Loaded _ | Error _ -> kind))
+          files
+      in
+      Progress.close pl;
+      files
+    )
+  else
+    files
 
+(* Cache files that have not been loaded from the cache *)
+
+let () =
+  if !Options.cache && (List.length files - !cache_files - !invalid_files) > 0 then
+    (
+      let pl = Progress.create "Caching" (List.length files - !cache_files - !invalid_files) in
+      List.iter
+        (fun (filename, kind) ->
+          match kind with
+          | Parsed csts | Expanded csts ->
+             (
+               Progress.incr pl;
+               save_cache_file (cache filename) csts
+             )
+          | Source -> assert false
+          | Loaded _ | Error _ -> ())
+        files;
+      Progress.close pl
+    )
+
+(* Give all the files to the analyzers *)
+
+let () =
+  let files =
+    list_map_filter
+      (fun (filename, kind) ->
+        match kind with
+        | Parsed csts | Expanded csts | Loaded csts ->
+           Some (filename, csts)
+        | Error _ -> None
+        | Source -> assert false)
+      files
+  in
+  Analyzer.process_scripts files
+
+(* Create the report and end *)
+
+let () =
   Format.eprintf "Creating report... @?";
   let report = Report.create "Statistics Report" in
   Analyzer.output_report report;
