@@ -57,6 +57,7 @@ let () =
       (module RedirectionAnalyzer) ;
       (module StructureAnalyzer) ;
       (module TestAnalyzer) ;
+      (module DollarAnalyzer) ;
     ];
 
   (* Parse command line *)
