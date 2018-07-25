@@ -348,47 +348,58 @@ let output_report report =
 
   (* by location *)
 
-  Report.add report "* by location\n";
+  let batches_location =
+    list_sort_batch
+      (fun r s -> compare r.location s.location)
+      !results
+  in
+  
+  Report.add report "* [%d] by location\n" (List.length batches_location);
 
-  !results
+  List.iter
+    (fun batch_location ->
+      Report.add report "** [%d] %a\n"
+        (List.length batch_location)
+        pp_location (List.hd batch_location).location;
 
-  |> list_sort_batch
-       (fun r s -> compare r.location s.location)
+      let batches_abstract =
+        list_sort_batch
+          (fun r s -> compare r.abstract s.abstract)
+          batch_location
+      in
 
-  |> List.iter
-       (fun batch_location ->
-         Report.add report "** %a\n" pp_location (List.hd batch_location).location;
-
-         batch_location
-
-         |> list_sort_batch
-              (fun r s -> compare r.abstract s.abstract)
-
-         |> List.iter
-              (fun batch_abstract ->
-                Report.add report "*** %a\n" pp_a_redirection_list (List.hd batch_abstract).abstract;
-                output_results report batch_abstract));
+      List.iter
+        (fun batch_abstract ->
+          Report.add report "*** %a\n" pp_a_redirection_list (List.hd batch_abstract).abstract;
+          output_results report batch_abstract)
+        batches_abstract)
+    batches_location;
 
 
   (* by abstraction *)
 
-  Report.add report "* by abstraction\n";
+  let batches_abstract =
+    list_sort_batch
+      (fun r s -> compare r.abstract s.abstract)
+      !results
+  in
 
-  !results
+  Report.add report "* [%d] by abstraction\n" (List.length batches_abstract);
 
-  |> list_sort_batch
-       (fun r s -> compare r.abstract s.abstract)
+  List.iter
+    (fun batch_abstract ->
+      Report.add report "** [%d] %a\n"
+        (List.length batch_abstract)
+        pp_a_redirection_list (List.hd batch_abstract).abstract;
 
-  |> List.iter
-       (fun batch_abstract ->
-         Report.add report "** %a\n" pp_a_redirection_list (List.hd batch_abstract).abstract;
-
-         batch_abstract
-
-         |> list_sort_batch
-              (fun r s -> compare r.location s.location)
-
-         |> List.iter
-              (fun batch_location ->
-                Report.add report "*** %a\n" pp_location (List.hd batch_location).location;
-                output_results report batch_location));
+      let batches_location =
+        list_sort_batch
+          (fun r s -> compare r.location s.location)
+          batch_abstract
+      in
+      List.iter
+        (fun batch_location ->
+          Report.add report "*** %a\n" pp_location (List.hd batch_location).location;
+          output_results report batch_location)
+        batches_location)
+    batches_abstract
