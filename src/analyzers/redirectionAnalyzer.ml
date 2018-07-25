@@ -11,13 +11,49 @@ open Libmorbig.CST
 let name = "redirection"
 let options = []
 
+let list_batch equal list =
+  (* Invariants for aux (among others):
+     - curr \in curr_batch
+     - curr_batch <> [] *)
+  let rec aux curr curr_batch other_batches = function
+    | [] ->
+       List.rev
+         ((List.rev curr_batch)
+          :: other_batches)
+    | h :: q when equal h curr ->
+       aux curr (h :: curr_batch) other_batches q
+    | h :: q ->
+       aux h [h] ((List.rev curr_batch) :: other_batches) q
+  in
+  match list with
+  | [] -> []
+  | h :: q -> aux h [h] [] q
+
+let list_sort_batch compare list =
+  list
+  |> List.sort compare
+  |> list_batch (fun a b -> compare a b = 0)
+
 (* where a redirection can occur. *)
 (* FIXME: prefix/suffix? *)
 (* FIXME: better name *)
+
 type location_simple =
   Prefix | Suffix | Both
+
 type location =
   Assignment | Compound | Function | Simple of location_simple
+
+let pp_location fmt location =
+  Format.pp_print_string
+    fmt
+    (match location with
+     | Assignment -> "assignment"
+     | Compound -> "compound command"
+     | Function -> "function definition"
+     | Simple Prefix -> "prefix of a simple command"
+     | Simple Suffix -> "suffix of a simple command"
+     | Simple Both -> "both prefix and suffix of a simple command")
 
 (* ============== [ Abstract representation of redirections ] =============== *)
 
@@ -123,6 +159,13 @@ let pp_a_redirection fmt =
   | Here (a_descr, strip, a_delim) ->
      p fmt "%a<<%s%a" pp_a_descr a_descr (if strip then "-" else "") pp_a_delim a_delim
 
+let rec pp_a_redirection_list fmt = function
+  | [] -> Format.fprintf fmt "{empty}"
+  | [e] -> pp_a_redirection fmt e
+  | h :: t -> Format.fprintf fmt "%a %a"
+                pp_a_redirection h
+                pp_a_redirection_list t
+
 let a_redirection_of_io_file a_descr = function
   | IoFile_Less_FileName filename' ->
      Input (a_descr, a_file_of_filename filename'.value)
@@ -156,7 +199,7 @@ let a_redirection_of_io_redirect = function
      a_redirection_of_io_here (a_descr_of_io_number io_number) io_here'.value
 
 (* =============================== [ Result ] =============================== *)
-    
+
 type result =
   { filename : string ;
     location : location ;
@@ -173,7 +216,7 @@ let make_result filename location concrete =
 
 let make_one_result filename location concrete =
   [make_result filename location concrete]
-  
+
 let results : result list ref = ref []
 
 (* ===================== [ Helpers about redirections ] ===================== *)
@@ -285,14 +328,18 @@ let process_script filename csts =
   |> (fun file_results -> file_results @ !results)
   |> ((:=) results)
 
-let output_file_list report file_list =
-  List.iter
-    (fun result ->
-      Report.add report "- %s\n"
-        (Report.link_to_source report result.filename))
-    file_list
-
 (* =========================== [ Output Report ] ============================ *)
+
+let output_result report result =
+  Report.add report "- %s, line %d\n"
+    (Report.link_to_source report result.filename)
+    ((List.hd result.concrete)
+       .position
+       .start_p
+       .pos_lnum)
+
+let output_results report results =
+  List.iter (output_result report) results
 
 let output_report report =
   Report.add
@@ -303,90 +350,45 @@ let output_report report =
 
   Report.add report "* by location\n";
 
-  Report.add report "** in assignments\n";
   !results
-  |> List.filter (fun result -> result.location = Assignment)
-  |> output_file_list report;
 
-  Report.add report "** in compound commands\n";
+  |> list_sort_batch
+       (fun r s -> compare r.location s.location)
+
+  |> List.iter
+       (fun batch_location ->
+         Report.add report "** %a\n" pp_location (List.hd batch_location).location;
+
+         batch_location
+
+         |> list_sort_batch
+              (fun r s -> compare r.abstract s.abstract)
+
+         |> List.iter
+              (fun batch_abstract ->
+                Report.add report "*** %a\n" pp_a_redirection_list (List.hd batch_abstract).abstract;
+                output_results report batch_abstract));
+
+
+  (* by abstraction *)
+
+  Report.add report "* by abstraction\n";
+
   !results
-  |> List.filter (fun result -> result.location = Compound)
-  |> output_file_list report;
 
-  Report.add report "** in functions\n";
-  !results
-  |> List.filter (fun result -> result.location = Function)
-  |> output_file_list report;
+  |> list_sort_batch
+       (fun r s -> compare r.abstract s.abstract)
 
-  Report.add report "** in simple commands\n";
+  |> List.iter
+       (fun batch_abstract ->
+         Report.add report "** %a\n" pp_a_redirection_list (List.hd batch_abstract).abstract;
 
-  Report.add report "*** in the prefix\n";
-  !results
-  |> List.filter (fun result -> result.location = Simple Prefix)
-  |> output_file_list report;
+         batch_abstract
 
-  Report.add report "*** in the suffix\n";
-  !results
-  |> List.filter (fun result -> result.location = Simple Suffix)
-  |> output_file_list report;
+         |> list_sort_batch
+              (fun r s -> compare r.location s.location)
 
-  Report.add report "*** in both the prefix and the suffix\n";
-  !results
-  |> List.filter (fun result -> result.location = Simple Both)
-  |> output_file_list report;
-
-  (* by kind *)
-
-  Report.add report "* by kind\n";
-
-  let involves_kind kind result =
-    List.find_opt
-      (fun r -> io_redirect_to_kind r = kind)
-      result.content
-    <> None
-  in
-
-  Report.add report "** =<= (input)\n";
-  !results
-  |> List.filter (involves_kind Input)
-  |> output_file_list report;
-
-  Report.add report "** =>= (output)\n";
-  !results
-  |> List.filter (involves_kind Output)
-  |> output_file_list report;
-
-  Report.add report "** =>|= (output, clobber)\n";
-  !results
-  |> List.filter (involves_kind OutputClobber)
-  |> output_file_list report;
-
-  Report.add report "** =>>= (append output)\n";
-  !results
-  |> List.filter (involves_kind OutputAppend)
-  |> output_file_list report;
-
-  Report.add report "** =<<= (here document)\n";
-  !results
-  |> List.filter (involves_kind Here)
-  |> output_file_list report;
-
-  Report.add report "** =<<-= (stripped here document)\n";
-  !results
-  |> List.filter (involves_kind HereStripped)
-  |> output_file_list report;
-
-  Report.add report "** =<&= (duplicate input)\n";
-  !results
-  |> List.filter (involves_kind DuplicateInput)
-  |> output_file_list report;
-
-  Report.add report "** =>&= (duplicate output)\n";
-  !results
-  |> List.filter (involves_kind DuplicateOutput)
-  |> output_file_list report;
-
-  Report.add report "** =<>= (input and output)\n";
-  !results
-  |> List.filter (involves_kind InputOutput)
-  |> output_file_list report
+         |> List.iter
+              (fun batch_location ->
+                Report.add report "*** %a\n" pp_location (List.hd batch_location).location;
+                output_results report batch_location));
