@@ -9,6 +9,7 @@
 let list_of_files = ref "-"
 let report_path = ref ""
 let expander = ref true
+let cache = ref false
 
 let set reference value () =
   reference := value
@@ -18,7 +19,7 @@ let register_analyzers_options l =
   analyzers_options := l
 
 (* All options *)
-  
+
 let options () =
   ("--report-path",
    Arg.Set_string report_path,
@@ -39,6 +40,14 @@ let options () =
     ("--no-expander",
      Arg.Unit (set expander false),
      " Disable static expansion of variables")
+  ::
+    ("--cache",
+     Arg.Unit (set cache true),
+     " Enable use of cache files")
+  ::
+    ("--no-cache",
+     Arg.Unit (set cache false),
+     " Disable use of cache files (default)")
   ::
     (!analyzers_options
      |> List.sort (fun (o1, _, _) (o2, _, _) -> compare o1 o2))

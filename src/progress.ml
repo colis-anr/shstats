@@ -47,6 +47,7 @@ type t =
     len_txt : int ; len_int : int ; len_bar : int ; refresh : int }
 
 let create name total =
+  assert (total > 0);
   let term_cols = term_cols () in
   let len_int = int_length total in
   let len_txt = term_cols / 3 in
@@ -58,7 +59,7 @@ let create name total =
   { name ;
     curr = 0 ; total ;
     start ; elapsed = 0. ;
-    len_txt ; len_int ; len_bar ; refresh = total/len_bar }
+    len_txt ; len_int ; len_bar ; refresh = max 1 (total/len_bar) }
 
 let percentage ?(scale=100) l =
   ExtPervasives.percentage_i ~scale l.curr l.total
