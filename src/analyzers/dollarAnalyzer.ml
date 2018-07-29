@@ -19,6 +19,7 @@ open Messages
     *)
    
 let unWord word = Libmorbig.CSTHelpers.unWord word
+let unName' name' = Libmorbig.CSTHelpers.unName name'.value
 
 let options = []
             
@@ -38,7 +39,7 @@ let process_script filename cst =
       inherit [_] Libmorbig.CST.reduce as super
       method zero = false
       method plus = (||)
-      method! visit_word _env word =
+      method! visit_word for_variables word =
         let re_parname =
           "[a-zA-Z_][a-zA-Z_0-9@*?$!]*" in
         let re_parameter =
@@ -48,18 +49,36 @@ let process_script filename cst =
         let s = (UnQuote.on_string (unWord word)) in
         if
           Str.string_match re_parameter s 0
-        then begin
-            (try
-              register_identifier (Str.matched_group 1 s)
-            with
-              Not_found -> register_identifier (Str.matched_group 2 s));
-            true
-          end
+        then
+          let parameter_name =  
+            try Str.matched_group 1 s
+            with Not_found -> Str.matched_group 2 s
+          in
+          if not (List.mem parameter_name for_variables)
+          then begin
+              register_identifier parameter_name;
+              true
+            end
+          else
+            false
         else
           false
+
+      method! visit_for_clause for_variables = function
+        (* FIXME: consider only for loops for which the list is
+           statistically known. *)
+        | ForClause_For_Name_DoGroup(name',do_group')
+          | ForClause_For_Name_SequentialSep_DoGroup
+              (name',_,do_group')
+          | ForClause_For_Name_LineBreak_In_SequentialSep_DoGroup 
+              (name',_,_,do_group')
+          | ForClause_For_Name_LineBreak_In_WordList_SequentialSep_DoGroup
+              (name',_,_,_,do_group') ->
+           self#visit_do_group' ((unName' name')::for_variables) do_group'
+    
     end
   in
-  if detect_dollar#visit_complete_command_list () cst
+  if detect_dollar#visit_complete_command_list [] cst
   then 
     scripts_with_dollar := filename::!scripts_with_dollar
 
