@@ -10,7 +10,8 @@ let list_of_files = ref "-"
 let report_path = ref ""
 let expander = ref true
 let cache = ref false
-
+let save_json = ref false
+          
 let set reference value () =
   reference := value
 
@@ -48,6 +49,10 @@ let options () =
     ("--no-cache",
      Arg.Unit (set cache false),
      " Disable use of cache files (default)")
+  ::
+    ("--save-json",
+     Arg.Unit (set save_json true),
+     " Save JSon version of CSTs")
   ::
     (!analyzers_options
      |> List.sort (fun (o1, _, _) (o2, _, _) -> compare o1 o2))

@@ -44,6 +44,14 @@ let save_cache_file filename csts =
   output_value cout csts;
   close_out cout
 
+let json filename =
+  filename ^ ".json"
+
+let save_json_file filename csts =
+  let cout = open_out filename in
+  Yojson.Safe.pretty_to_channel cout (Libmorbig.CST.complete_command_list_to_yojson csts);
+  close_out cout
+
 (* Helpers *)
 
 let list_of_option_list l =
@@ -185,6 +193,26 @@ let () =
       Progress.close pl
     )
 
+(* Save JSon if asked *)
+
+let () =
+  if !Options.save_json && (List.length files - !invalid_files) > 0 then
+    (
+      let pl = Progress.create "Saving JSon" (List.length files - !invalid_files) in
+      List.iter
+        (fun (filename, kind) ->
+          match kind with
+          | Parsed csts | Expanded csts | Loaded csts ->
+             (
+               Progress.incr pl;
+               save_json_file (json filename) csts
+             )
+          | Source -> assert false
+          | Error _ -> ())
+        files;
+      Progress.close pl
+    )
+  
 (* Give all the files to the analyzers *)
 
 let () =
