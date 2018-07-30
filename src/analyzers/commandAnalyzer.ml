@@ -101,6 +101,18 @@ module Specification = struct
     |> List.map snd
     |> List.filter (fun line -> line <> "" && line.[0] <> '%')
     |> load_commands_from_lines
+
+  let canonical_command_name c =
+    try
+      List.hd (Hashtbl.find commands c).names
+    with
+      Not_found -> c
+
+  let compare_commands c1 c2 =
+    compare (canonical_command_name c1) (canonical_command_name c2)
+
+  let equal_commands c1 c2 =
+    compare_commands c1 c2 = 0
 end
 
 (* ====================== [ Simple Arguments Parser ] ======================= *)
@@ -119,7 +131,7 @@ let destruct_argument arg =
 
 let parse_arguments command args =
   let rec aux acc = function
-    | [] -> List.rev acc 
+    | [] -> List.rev acc
     | arg :: rest when arg = "" || arg.[0] <> '-' -> aux acc rest
     | arg :: rest ->
        let (is_long, arg) = destruct_argument arg in
@@ -152,6 +164,7 @@ let arguments_of_suffix' command =
   words_of_suffix'
   ||> List.map unWord'
   ||> parse_arguments command
+  ||> List.sort compare
 
 let process_script filename csts =
   let visitor = object (self)
@@ -181,4 +194,68 @@ let process_script filename csts =
   visitor#visit_complete_command_list () csts
 
 let output_report report =
-  ()
+  let commands = get_commands () in
+  let command_batches =
+    commands
+    |> List.sort_batch (fun c1 c2 -> Specification.compare_commands c1.name c2.name)
+    |> List.sort (fun l1 l2 -> compare (List.length l1) (List.length l2))
+    |> List.rev
+  in
+
+  let name_from_batch command_batch =
+    (command_batch |> List.hd).name
+  in
+  
+  (* One report per command *)
+
+  List.iter
+    (fun command_batch ->
+      let arg_batches =
+        command_batch
+        |> List.sort_batch (fun c1 c2 -> compare c1.arguments c2.arguments)
+        |> List.sort (fun l1 l2 -> compare (List.length l1) (List.length l2))
+        |> List.rev
+      in
+      let subreport = Report.create_subreport report (name_from_batch command_batch) in
+      Report.add_org subreport
+        Org.[
+          Heading (
+              "Sorted by list of arguments",
+              (List.map
+                 (fun arg_batch ->
+                   Heading (
+                       (f "%05d %s" (List.length arg_batch) (String.concat " " (List.hd arg_batch).arguments)),
+                       [ List
+                           (List.map
+                              (fun command ->
+                                [String (f "%s, line %d" (Report.link_to_source report command.filename) command.line)])
+                              arg_batch) ]
+                 ))
+                 arg_batches
+              )
+            )
+    ])
+    command_batches;
+
+  (* General report *)
+
+  Report.add_org report
+    Org.[
+      Heading (
+          "General statistics",
+          [ List [
+                [String (f "%d simple commands analyzed" (List.length commands))] ;
+                [String (f "%d unique simple commands found" (List.length command_batches))]
+              ]
+          ]
+        ) ;
+      Heading (
+          "Sorted by occurrences",
+          [ List (
+                List.map
+                  (fun command_batch ->
+                    [String (f "%05d %s" (List.length command_batch) (Report.link_to_subreport report (name_from_batch command_batch)))])
+                  command_batches
+          ) ]
+        ) 
+  ]
