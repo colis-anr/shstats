@@ -74,6 +74,7 @@ let () =
       (module StructureAnalyzer) ;
       (module TestAnalyzer) ;
       (module DollarAnalyzer) ;
+      (module LocalAnalyzer) ;
     ]
 
   (* Parse command line *)

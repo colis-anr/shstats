@@ -68,7 +68,7 @@ let process_script filename cst =
         super#visit_function_definition
           {in_function=true;in_branching=false} cst
           (* a function definition may be inside a conditional so we
-             reset in_branching when entering a function definition. *)
+             reset in_branching when entering a function definition. *) 
 
       method! visit_for_clause env cst =
         super#visit_for_clause {env with in_branching=true} cst
