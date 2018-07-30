@@ -6,7 +6,11 @@
 (*  under the terms of the GNU General Public License, version 3.         *)
 (**************************************************************************)
 
+open ExtPervasives
 open Messages
+
+type command_name = string
+type option_name = string
 
 type number_of_arguments =
   | NoArgument
@@ -16,12 +20,9 @@ type number_of_arguments =
   | UseArgumentAsEOF
   | Unhandled
 
-type command_name = Libmorbig.CST.word
-type option_name = Libmorbig.CST.word
-
 type option_specification = {
-  name : option_name list;
-  number_of_arguments : number_of_arguments
+    name : option_name list;
+    number_of_arguments : number_of_arguments
   }
 
 type command_options = {
@@ -33,92 +34,105 @@ type command_options = {
     specified : bool;
   }
 
-let literal s = Libmorbig.CST.Word (s, [WordLiteral s])
+(* Synonyms for commands *)
 
 let remember_synonym, canonical_command_name =
   let command_synonyms = Hashtbl.create 13 in
-  (fun c c' -> Hashtbl.add command_synonyms (literal c') c), (*FIXME*)
-  (fun c -> try Hashtbl.find command_synonyms c with Not_found -> c)
+  (fun (c:string) (c':string) -> Hashtbl.add command_synonyms c' c),
+  (fun (c:string) -> try Hashtbl.find command_synonyms c with Not_found -> c)
+
+(* Command specification *)
 
 let command_specification =
   ref (fun _ -> Options.failwith "--specification option is required by the command analyzer")
 
 let load_commands_specification commands_specification =
-  let parse_command_option lines = Scanf.(
-    let header (lineno, s) =
+  let parse_command_option lines =
+    (* The header function parses the first line for a command ("*
+       [,test true true false") into a command_options. *)
+    let header line =
       try
-	sscanf s "* %s %B %B %B" (fun c b s r ->
-	  let command_synonyms = Str.(split (regexp ",") c) in
-	  let c = match command_synonyms with
-	    | [] -> assert false
-	    | c :: cs -> List.iter (remember_synonym (literal c)) cs; c
-	  in
-	  {
-	    command = literal c;
-	    accumulated_short_options = b;
-	    start_with_options = s;
-            double_dash_for_raw = r;
-	    options = [];
-	    specified = true
-	  }
-	)
-      with _ -> error (
-	Format.sprintf "Line %d: Syntax error.\n" lineno
-      )
+	Scanf.sscanf line "* %s %B %B %B"
+          (fun command accumulated_short_options start_with_options double_dash_for_raw ->
+            (* The user might have specified several command names for
+               the same one (like "[,test,other_name"). In that case,
+               we take the first one to be the real name, and the
+               others to be synonyms *)
+	    let command = match String.split_on_char ',' command with
+	      | [] -> assert false
+	      | command :: synonyms ->
+                 List.iter (remember_synonym command) synonyms;
+                 command
+	    in
+	    {
+	      command ;
+	      accumulated_short_options ;
+	      start_with_options ;
+              double_dash_for_raw ;
+	      options = [];
+	      specified = true
+	    }
+	  )
+      with _ -> assert false
     in
-    let option (lineno, s) =
+    (* The option function parses the option lines for a command. *)
+    let option line =
       try
-	sscanf s "** %s %s" (fun o i ->
-	  let number_of_arguments =
-	    match i with
-	      | "*" ->
-		MoreThanOne
-	      | ";" ->
-		UntilSemicolon
-	      | "#" ->
-		UseArgumentAsEOF
-	      | "?" ->
-		Unhandled
-	      | "0" ->
-		NoArgument
-	      | d   ->
-		Exactly (int_of_string d)
-	  in
-	  let options = Str.(split (regexp ",") o) in
-	  { name = List.map literal options; number_of_arguments })
-      with _ -> error (
-	Format.sprintf "Line %d: Expecting a natural number, '*' or ';'.\n" lineno
-      )
+	Scanf.sscanf line "** %s %s"
+          (fun options i ->
+	    let number_of_arguments =
+	      match i with
+	      | "*" -> MoreThanOne
+	      | ";" -> UntilSemicolon
+	      | "#" -> UseArgumentAsEOF
+	      | "?" -> Unhandled
+	      | "0" -> NoArgument
+	      | d   -> Exactly (int_of_string d)
+	    in
+	    let options = String.split_on_char ',' options in
+	    { name = options; number_of_arguments })
+      with _ -> assert false
     in
-    let command = header (List.hd lines) in
-    let options = List.fold_left (fun command o ->
-      { command with options = o :: command.options }
-    ) command (List.map option (List.tl lines))
-    in
-    options
-  )
+    List.fold_left
+      (fun command options ->
+        { command with options = options :: command.options })
+      (header (List.hd lines))
+      (List.map option (List.tl lines))
+
   in
-  let no_comment (_, s) = s = "" || (String.length s > 0 && s.[0] <> '%') in
+  let no_comment line =
+    line = ""
+    || (String.length line > 0 && line.[0] <> '%')
+  in
   let command_options =
-    List.map parse_command_option ExtPervasives.(List.split_delim (fun (_, s) -> s = "") (
-      List.filter no_comment (lines_of_channel (open_in commands_specification))
-    ))
+    open_in commands_specification   (* open command specs *)
+    |> lines_of_channel              (* get all lines in a list *)
+    |> List.map snd                  (* forget about line numbers *)
+    |> List.filter no_comment        (* remove comment lines *)
+    |> List.split_delim ((=) "")     (* use empty lines to split between commands *)
+    |> List.map parse_command_option (* parse each command *)
   in
+  (* Put all commands in a Hashtbl *)
   let table = Hashtbl.create 13 in
-  List.iter (fun co -> Hashtbl.add table co.command co) command_options;
-  command_specification := fun o ->
+  List.iter
+    (fun command ->
+      Hashtbl.add table command.command command)
+    command_options;
+  (* command_specification is not a function that tries to find
+     commands in the table. If they are not there, it returns an
+     unspecified command over which we have no knowledge. *)
+  command_specification :=
+    fun command ->
     try
-      let o = canonical_command_name o in
-      Hashtbl.find table o
+      let command = canonical_command_name command in
+      Hashtbl.find table command
     with Not_found ->
-      {
-	command = o;
+      { command ;
 	accumulated_short_options = false;
 	start_with_options = false;
         double_dash_for_raw = false;
 	options = [];
-	specified = false
-      }
+	specified = false }
 
 let lookup_command command = !command_specification command
 
@@ -133,8 +147,7 @@ let lookup_option_number_of_arguments command option =
     NoArgument
 
 let is_option_of_command ?(who_is_asking="") command option =
-  let s = Libmorbig.CSTHelpers.unWord option in
-  let option_shape = String.length s > 0 && (s.[0] = '-') in
+  let option_shape = String.length option > 0 && (option.[0] = '-') in
   try
     let command_specification = !command_specification command in
     if command_specification.specified then
@@ -145,12 +158,12 @@ let is_option_of_command ?(who_is_asking="") command option =
     if option_shape then warning (
       Format.sprintf
 	"`%s': unknown option `%s' %s."
-	(Libmorbig.CSTHelpers.unWord command) s
+	command option
 	(if who_is_asking = "" then
-	    ""
+	   ""
 	 else
-	    Format.sprintf "\n(See %s)" who_is_asking)
-    );
+	   Format.sprintf "\n(See %s)" who_is_asking)
+                           );
     false
 
 let canonical_option_name command option =

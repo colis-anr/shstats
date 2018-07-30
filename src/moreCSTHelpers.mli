@@ -8,5 +8,11 @@
 
 open Libmorbig.CST
 
+val lnum : 'a located -> int
+
 val words_of_suffix : cmd_suffix -> word' list
 val words_of_suffix' : cmd_suffix' -> word' list
+
+val unWord' : word' -> string
+val unCmdWord' : cmd_word' -> string
+val unCmdName' : cmd_name' -> string

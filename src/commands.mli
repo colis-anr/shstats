@@ -10,11 +10,11 @@
 
        A priori knowledge about commands and their options.
 
-*)
+ *)
 
 (* FIXME: shouldn't these be simply string ? *)
-type command_name = Libmorbig.CST.word
-type option_name = Libmorbig.CST.word
+type command_name = string
+type option_name = string
 
 (** type for representing the possible arguments to an option of a given
     command. *)

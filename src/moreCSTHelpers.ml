@@ -7,7 +7,11 @@
 (**************************************************************************)
 
 open Libmorbig.CST
+open Libmorbig.CSTHelpers
 
+let lnum located =
+  located.position.start_p.pos_lnum
+   
 let rec words_of_suffix acc = function
   | CmdSuffix_IoRedirect _ ->
      acc
@@ -22,3 +26,7 @@ and words_of_suffix' acc s = words_of_suffix acc s.value
 
 let words_of_suffix s = words_of_suffix [] s
 let words_of_suffix' s' = words_of_suffix' [] s'
+
+let unWord' word' = unWord word'.value
+let unCmdWord' {value=(CmdWord_Word word')} = unWord word'.value
+let unCmdName' {value=(CmdName_Word word')} = unWord word'.value

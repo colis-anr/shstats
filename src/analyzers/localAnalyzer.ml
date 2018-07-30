@@ -7,24 +7,18 @@
 (**************************************************************************)
 
 open ExtPervasives
-open Libmorbig.CST
+open MoreCSTHelpers
 open Options
 open Commands
 open Messages
 
-(* 
+(*
    finds occurence of local that are not inside a function definition,
    or inside a branching control structure.
  *)
-   
-let options = []
-            
+
 let name = "local"
-         
-let unCmdWord' {value=(Libmorbig.CST.CmdWord_Word word')} =
-  Libmorbig.CSTHelpers.unWord word'.value
-let unCmdName' {value=(Libmorbig.CST.CmdName_Word word')} =
-  Libmorbig.CSTHelpers.unWord word'.value
+let options = []
 
 let local_outside_function = ref ( [] : string list )
 and local_in_branching = ref ( [] : string list )
@@ -36,7 +30,6 @@ and register_in_branching s =
 and register_ok s =
   local_ok := s::!local_ok
 
-  
 type env = {
     in_function : bool;
     in_branching : bool
@@ -68,7 +61,7 @@ let process_script filename cst =
         super#visit_function_definition
           {in_function=true;in_branching=false} cst
           (* a function definition may be inside a conditional so we
-             reset in_branching when entering a function definition. *) 
+             reset in_branching when entering a function definition. *)
 
       method! visit_for_clause env cst =
         super#visit_for_clause {env with in_branching=true} cst
@@ -98,7 +91,7 @@ let output_report report =
   Report.add report "** Files:\n";
   List.iter
     (function scriptname ->
-       Report.add report "    - %s\n" (Report.link_to_source report scriptname))
+       Report.add report "- %s\n" (Report.link_to_source report scriptname))
     !local_ok;
   Report.add report
     "* Number of local outside function definition: %d\n"
@@ -106,7 +99,7 @@ let output_report report =
   Report.add report "** Files:\n";
   List.iter
     (function scriptname ->
-       Report.add report "    - %s\n" (Report.link_to_source report scriptname))
+       Report.add report "- %s\n" (Report.link_to_source report scriptname))
     !local_outside_function;
   Report.add report
     "* Number of local in branching command: %d\n"
@@ -114,6 +107,5 @@ let output_report report =
   Report.add report "** Files:\n";
   List.iter
     (function scriptname ->
-       Report.add report "    - %s\n" (Report.link_to_source report scriptname))
+       Report.add report "- %s\n" (Report.link_to_source report scriptname))
     !local_in_branching;
-              

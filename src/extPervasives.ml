@@ -6,6 +6,8 @@
 (*  under the terms of the GNU General Public License, version 3.         *)
 (**************************************************************************)
 
+let (||>) f g x = f x |> g
+
 let rec nat_exp k = function
   | -1 -> assert false
   | 0 -> 1
@@ -36,6 +38,19 @@ let lines_of_channel cin =
       lines := (!lineno, input_line cin) :: !lines
    done with _ -> ());
   List.rev !lines
+
+module String = struct
+  include String
+
+  let to_char_list s =
+    let rec aux i s =
+      if i >= String.length s then
+        []
+      else
+        s.[i] :: aux (i+1) s
+    in
+    aux 0 s
+end
 
 module List = struct
   include List
