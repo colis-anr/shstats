@@ -64,13 +64,26 @@ let process_script filename cst =
           | SimpleCommand_CmdName (cmd_name') ->
            register_local env (unCmdName' cmd_name') filename
 
-      method! visit_function_definition env = function
-        | FunctionDefinition_Fname_Lparen_Rparen_LineBreak_FunctionBody
-          (_,_,function_body') ->
-           self#visit_function_body' {env with in_function=true} function_body'
+      method! visit_function_definition env cst =
+        super#visit_function_definition
+          {in_function=true;in_branching=false} cst
+          (* a function definition may be inside a conditional so we
+             reset in_branching when entering a function definition. *)
 
-      method! visit_compound_command env cst =
-        super#visit_compound_command {env with in_branching=true} cst
+      method! visit_for_clause env cst =
+        super#visit_for_clause {env with in_branching=true} cst
+
+      method! visit_case_clause env cst =
+        super#visit_case_clause {env with in_branching=true} cst
+
+      method! visit_if_clause env cst =
+        super#visit_if_clause {env with in_branching=true} cst
+
+      method! visit_while_clause env cst =
+        super#visit_while_clause {env with in_branching=true} cst
+
+      method! visit_until_clause env cst =
+        super#visit_until_clause {env with in_branching=true} cst
 
     end
   in
@@ -79,6 +92,28 @@ let process_script filename cst =
     cst
 
 let output_report report =
-  ()
-  
+  Report.add report
+    "* Number of local in function, outside branching cmd: %d\n"
+    (List.length !local_ok);
+  Report.add report "** Files:\n";
+  List.iter
+    (function scriptname ->
+       Report.add report "    - %s\n" (Report.link_to_source report scriptname))
+    !local_ok;
+  Report.add report
+    "* Number of local outside function definition: %d\n"
+    (List.length !local_outside_function);
+  Report.add report "** Files:\n";
+  List.iter
+    (function scriptname ->
+       Report.add report "    - %s\n" (Report.link_to_source report scriptname))
+    !local_outside_function;
+  Report.add report
+    "* Number of local in branching command: %d\n"
+    (List.length !local_in_branching);
+  Report.add report "** Files:\n";
+  List.iter
+    (function scriptname ->
+       Report.add report "    - %s\n" (Report.link_to_source report scriptname))
+    !local_in_branching;
               
