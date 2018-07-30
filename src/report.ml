@@ -85,7 +85,8 @@ let has_subreports report =
 
 let add report = Format.fprintf report.formatter
 
-
+let add_org report org =
+  add report "%a" Org.pp_print org
 
 
 

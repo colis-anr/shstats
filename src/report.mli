@@ -13,7 +13,8 @@ val create_subreport : t -> ?title:string -> string -> t
 val commit : t -> string -> unit
 
 val add : t -> ('a, Format.formatter, unit) format -> 'a
-
+val add_org : t -> Org.t -> unit
+  
 (** {3 Link utilities} *)
 
 val link_to_subreport : t -> ?text:string -> string -> string
