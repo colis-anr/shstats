@@ -1,0 +1,21 @@
+#+TITLE: =shstats= --  A statistical analyzer for corpora of shell scripts
+
+* Installing
+
+Shstats depends on [[https://github.com/colis-anr/morbig][Morbig]] which has no stable release yet. In order to
+be able to build Shstats, you need to use the =ralf/exports= branch of
+Morbig.
+
+After that, all the dependencies of Shstats should be included in that
+of Morbig. A simple =make= should work.
+
+* Example
+
+On a corpus of debian packages:
+
+: find corpus -iregex '.*/\(pre\|post\)\(inst\|rm\)' \
+:     | bin/shstats --specifications share/specifications --report-path report
+
+should do the trick. You can then open =report/index.org= in any editor
+(although Emacs is recommended as it has a nice support for Org
+files).
