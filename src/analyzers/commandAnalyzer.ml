@@ -113,6 +113,12 @@ module Specification = struct
 
   let equal_commands c1 c2 =
     compare_commands c1 c2 = 0
+
+  let canonical_option_name c o =
+    try
+      List.hd (Hashtbl.find (Hashtbl.find commands c).options o).names
+    with
+      Not_found -> o
 end
 
 (* ====================== [ Simple Arguments Parser ] ======================= *)
@@ -131,15 +137,18 @@ let destruct_argument arg =
 
 let parse_arguments command args =
   let rec aux acc = function
-    | [] -> List.rev acc
-    | arg :: rest when arg = "" || arg.[0] <> '-' -> aux acc rest
+    | [] ->
+       List.rev acc
+       |> List.map (Specification.canonical_option_name command)
+    | arg :: rest when arg = "" || arg.[0] <> '-' ->
+       aux acc rest
     | arg :: rest ->
        let (is_long, arg) = destruct_argument arg in
        if is_long then
          aux (("--"^arg) :: acc) rest
        else
          (
-           if has_accumulating_arguments command && String.length arg > 1 then
+           if (* has_accumulating_arguments command && *) String.length arg > 1 then
              aux acc ((String.to_char_list arg |> List.map (String.make 1 ||> ((^) "-"))) @ rest)
            else
              aux (("-"^arg) :: acc) rest
@@ -205,7 +214,7 @@ let output_report report =
   let name_from_batch command_batch =
     (command_batch |> List.hd).name
   in
-  
+
   (* One report per command *)
 
   List.iter
@@ -257,5 +266,5 @@ let output_report report =
                     [String (f "%05d %s" (List.length command_batch) (Report.link_to_subreport report (name_from_batch command_batch)))])
                   command_batches
           ) ]
-        ) 
+        )
   ]
