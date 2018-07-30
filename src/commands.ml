@@ -100,7 +100,7 @@ let load_commands_specification commands_specification =
   in
   let no_comment (_, s) = s = "" || (String.length s > 0 && s.[0] <> '%') in
   let command_options =
-    List.map parse_command_option ExtPervasives.(split_list (fun (_, s) -> s = "") (
+    List.map parse_command_option ExtPervasives.(List.split_delim (fun (_, s) -> s = "") (
       List.filter no_comment (lines_of_channel (open_in commands_specification))
     ))
   in

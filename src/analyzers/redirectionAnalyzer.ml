@@ -6,33 +6,11 @@
 (*  under the terms of the GNU General Public License, version 3.         *)
 (**************************************************************************)
 
+open ExtPervasives
 open Libmorbig.CST
 
 let name = "redirection"
 let options = []
-
-let list_batch equal list =
-  (* Invariants for aux (among others):
-     - curr \in curr_batch
-     - curr_batch <> [] *)
-  let rec aux curr curr_batch other_batches = function
-    | [] ->
-       List.rev
-         ((List.rev curr_batch)
-          :: other_batches)
-    | h :: q when equal h curr ->
-       aux curr (h :: curr_batch) other_batches q
-    | h :: q ->
-       aux h [h] ((List.rev curr_batch) :: other_batches) q
-  in
-  match list with
-  | [] -> []
-  | h :: q -> aux h [h] [] q
-
-let list_sort_batch compare list =
-  list
-  |> List.sort compare
-  |> list_batch (fun a b -> compare a b = 0)
 
 (* where a redirection can occur. *)
 (* FIXME: prefix/suffix? *)
@@ -349,7 +327,7 @@ let output_report report =
   (* by location *)
 
   let batches_location =
-    list_sort_batch
+    List.sort_batch
       (fun r s -> compare r.location s.location)
       !results
   in
@@ -358,7 +336,7 @@ let output_report report =
       (fun b c -> - compare (List.length b) (List.length c))
       batches_location
   in
-  
+
   Report.add report "* [%d] by location\n" (List.length batches_location);
 
   List.iter
@@ -368,7 +346,7 @@ let output_report report =
         pp_location (List.hd batch_location).location;
 
       let batches_abstract =
-        list_sort_batch
+        List.sort_batch
           (fun r s -> compare r.abstract s.abstract)
           batch_location
       in
@@ -384,7 +362,7 @@ let output_report report =
   (* by abstraction *)
 
   let batches_abstract =
-    list_sort_batch
+    List.sort_batch
       (fun r s -> compare r.abstract s.abstract)
       !results
   in
@@ -403,7 +381,7 @@ let output_report report =
         pp_a_redirection_list (List.hd batch_abstract).abstract;
 
       let batches_location =
-        list_sort_batch
+        List.sort_batch
           (fun r s -> compare r.location s.location)
           batch_abstract
       in

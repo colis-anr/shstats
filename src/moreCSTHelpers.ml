@@ -1,0 +1,24 @@
+(**************************************************************************)
+(*  Copyright (C) 2017,2018 Nicolas Jeannerod, Yann Régis-Gianas,         *)
+(*  Ralf Treinen.                                                         *)
+(*                                                                        *)
+(*  This is free software: you can redistribute it and/or modify it       *)
+(*  under the terms of the GNU General Public License, version 3.         *)
+(**************************************************************************)
+
+open Libmorbig.CST
+
+let rec words_of_suffix acc = function
+  | CmdSuffix_IoRedirect _ ->
+     acc
+  | CmdSuffix_CmdSuffix_IoRedirect (s, _) ->
+     words_of_suffix' acc s
+  | CmdSuffix_Word w ->
+     w :: acc
+  | CmdSuffix_CmdSuffix_Word (s, w) ->
+     words_of_suffix' (w :: acc) s
+
+and words_of_suffix' acc s = words_of_suffix acc s.value
+
+let words_of_suffix s = words_of_suffix [] s
+let words_of_suffix' s' = words_of_suffix' [] s'

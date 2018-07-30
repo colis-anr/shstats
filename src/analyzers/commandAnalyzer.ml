@@ -15,10 +15,8 @@ open Libmorbig.CSTHelpers
 let name = "commands"
 
 let exotic_command_levels = ref []
-
-let push_exotic_command_level i =
-  exotic_command_levels := i :: !exotic_command_levels
-
+let push_exotic_command_level = ignore
+         
 let options = [
     "-i", Arg.Int push_exotic_command_level, "LEVEL If a command is used less than LEVEL time, mark it as exotic" ;
     "--specification", Arg.String Commands.load_commands_specification, "FILE Load commands specification from FILE"
@@ -136,18 +134,6 @@ let count_use command filename options =
   let argument_categories = classify_arguments command filename options argument_categories in
   Hashtbl.replace commands command (argument_categories, filename :: filenames)
 
-let rec words_of_suffix = function
-  | CmdSuffix_IoRedirect _ ->
-     []
-  | CmdSuffix_CmdSuffix_IoRedirect (s, _) ->
-     words_of_suffix' s
-  | CmdSuffix_Word w ->
-     [w]
-  | CmdSuffix_CmdSuffix_Word (s, w) ->
-     w :: words_of_suffix' s
-
-and words_of_suffix' s = words_of_suffix s.value
-
 module StringMap = Map.Make (String)
 
 let expand_variable env (Word (w, _)) =
@@ -206,7 +192,7 @@ let count_command env filename cst =
 
 	method! visit_simple_command venv s =
 	  let args_of_suffix suffix =
-            List.(map (fun word' -> expand_variable !env word'.value) (rev (words_of_suffix suffix)))
+            List.(map (fun word' -> expand_variable !env word'.value) (MoreCSTHelpers.words_of_suffix suffix))
 	  in
 	  let cp, w, arguments = match s with
 	    | SimpleCommand_CmdPrefix_CmdWord_CmdSuffix (cp, cw, suffix) ->
