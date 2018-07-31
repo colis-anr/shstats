@@ -6,6 +6,9 @@
 (*  under the terms of the GNU General Public License, version 3.         *)
 (**************************************************************************)
 
+module List = ExtList
+module String = ExtString
+
 let (||>) f g x = f x |> g
 
 let rec nat_exp k = function
@@ -38,67 +41,6 @@ let lines_of_channel cin =
       lines := (!lineno, input_line cin) :: !lines
    done with _ -> ());
   List.rev !lines
-
-module String = struct
-  include String
-
-  let to_char_list s =
-    let rec aux i s =
-      if i >= String.length s then
-        []
-      else
-        s.[i] :: aux (i+1) s
-    in
-    aux 0 s
-end
-
-module List = struct
-  include List
-
-  let batch equal list =
-    (* Invariants for aux (among others):
-     - curr \in curr_batch
-     - curr_batch <> [] *)
-    let rec aux curr curr_batch other_batches = function
-      | [] ->
-         List.rev
-           ((List.rev curr_batch)
-            :: other_batches)
-      | h :: q when equal h curr ->
-         aux curr (h :: curr_batch) other_batches q
-      | h :: q ->
-         aux h [h] ((List.rev curr_batch) :: other_batches) q
-    in
-    match list with
-    | [] -> []
-    | h :: q -> aux h [h] [] q
-
-  let sort_batch compare list =
-    list
-    |> sort compare
-    |> batch (fun a b -> compare a b = 0)
-
-  let split_delim is_delim l =
-    let rec aux acc1 acc2 = function
-      | [] ->
-         List.(rev (rev acc2 :: acc1))
-      | x :: xs ->
-         if is_delim x then
-	   aux (List.rev acc2 :: acc1) [] xs
-         else
-	   aux acc1 (x :: acc2) xs
-    in
-    List.filter (fun x -> x <> []) (aux [] [] l)
-end
-
-let uniq l =
-  let rec remove_dup = function
-    | [] -> []
-    | [x] -> [x]
-    | x :: y :: ys when x = y -> remove_dup (y :: ys)
-    | x :: ys -> x :: remove_dup ys
-  in
-  remove_dup (List.sort compare l)
 
 let histogram projector l =
   let similar a b = match a, b with
@@ -203,9 +145,6 @@ end
 
 (* Pretty-printers helpers *)
 
-let pp_string ppf s =
-  Format.fprintf ppf "%s" s
-
 (** [pp_to_print pp] is the pretty-printer [pp] that, instead of
     taking any formatter, uses the std_formatter. *)
 let pp_to_print pp =
@@ -217,19 +156,6 @@ let pp_to_string pp arg =
   pp ppf arg;
   Format.pp_print_flush ppf ();
   Buffer.contents b
-
-let split_on_char sep s =
-  (* In the stdlib since 4.04.0 *)
-  let r = ref [] in
-  let j = ref (String.length s) in
-  for i = String.length s - 1 downto 0 do
-    if String.unsafe_get s i = sep then
-      (
-        r := String.sub s (i + 1) (!j - i - 1) :: !r;
-        j := i
-      )
-  done;
-  String.sub s 0 !j :: !r;;
 
 let remove_extension f =
   try
