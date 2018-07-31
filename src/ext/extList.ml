@@ -6,8 +6,6 @@
 (*  under the terms of the GNU General Public License, version 3.         *)
 (**************************************************************************)
 
-include List
-
 let batch equal list =
   (* Invariants for aux (among others):
      - curr \in curr_batch
@@ -26,10 +24,11 @@ let batch equal list =
   | [] -> []
   | h :: q -> aux h [h] [] q
 
-let sort_batch compare list =
+let sort_batch_sort compare list =
   list
-  |> sort compare
+  |> List.sort compare
   |> batch (fun a b -> compare a b = 0)
+  |> List.sort (fun b1 b2 -> Pervasives.compare (List.length b2) (List.length b1))
 
 let split_delim is_delim l =
   let rec aux acc1 acc2 = function

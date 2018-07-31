@@ -6,8 +6,8 @@
 (*  under the terms of the GNU General Public License, version 3.         *)
 (**************************************************************************)
 
-module List = ExtList
-module String = ExtString
+module List = struct include List include ExtList end
+module String = struct include String include ExtString end
 
 let (||>) f g x = f x |> g
 

@@ -6,8 +6,6 @@
 (*  under the terms of the GNU General Public License, version 3.         *)
 (**************************************************************************)
 
-include String
-
 let to_char_list s =
   let rec aux i s =
     if i >= String.length s then

@@ -327,14 +327,9 @@ let output_report report =
   (* by location *)
 
   let batches_location =
-    List.sort_batch
+    List.sort_batch_sort
       (fun r s -> compare r.location s.location)
       !results
-  in
-  let batches_location =
-    List.sort
-      (fun b c -> - compare (List.length b) (List.length c))
-      batches_location
   in
 
   Report.add report "* [%d] by location\n" (List.length batches_location);
@@ -346,7 +341,7 @@ let output_report report =
         pp_location (List.hd batch_location).location;
 
       let batches_abstract =
-        List.sort_batch
+        List.sort_batch_sort
           (fun r s -> compare r.abstract s.abstract)
           batch_location
       in
@@ -362,7 +357,7 @@ let output_report report =
   (* by abstraction *)
 
   let batches_abstract =
-    List.sort_batch
+    List.sort_batch_sort
       (fun r s -> compare r.abstract s.abstract)
       !results
   in
@@ -381,7 +376,7 @@ let output_report report =
         pp_a_redirection_list (List.hd batch_abstract).abstract;
 
       let batches_location =
-        List.sort_batch
+        List.sort_batch_sort
           (fun r s -> compare r.location s.location)
           batch_abstract
       in

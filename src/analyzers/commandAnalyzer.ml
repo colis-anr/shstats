@@ -209,9 +209,8 @@ let output_report report =
   let commands = get_commands () in
   let command_batches =
     commands
-    |> List.sort_batch (fun c1 c2 -> Specification.compare_commands c1.name c2.name)
-    |> List.sort (fun l1 l2 -> compare (List.length l1) (List.length l2))
-    |> List.rev
+    |> List.sort_batch_sort
+         (fun c1 c2 -> Specification.compare_commands c1.name c2.name)
   in
 
   let name_from_batch command_batch =
@@ -224,9 +223,8 @@ let output_report report =
     (fun command_batch ->
       let arg_batches =
         command_batch
-        |> List.sort_batch (fun c1 c2 -> compare c1.arguments c2.arguments)
-        |> List.sort (fun l1 l2 -> compare (List.length l1) (List.length l2))
-        |> List.rev
+        |> List.sort_batch_sort
+             (fun c1 c2 -> compare c1.arguments c2.arguments)
       in
       let subreport = Report.create_subreport report (name_from_batch command_batch) in
       Report.add_org subreport
@@ -247,7 +245,7 @@ let output_report report =
               )
             ) ;
           Heading (
-              "Sort by argument",
+              "Sorted by argument",
               (* Take all the commands talking about the same name. *)
               command_batch
               |> List.map
@@ -263,7 +261,8 @@ let output_report report =
                  form (used_argument, command) for all commands *)
               |> List.flatten
               (* Sort and batch them by argument *)
-              |> List.sort_batch (fun (arg1, _) (arg2, _) -> compare arg1 arg2)
+              |> List.sort_batch_sort
+                   (fun (arg1, _) (arg2, _) -> compare arg1 arg2)
               (* Generate the report: one heading by argument containing the list of files. *)
               |> List.map
                    (fun arg_batch ->
