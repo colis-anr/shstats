@@ -18,8 +18,6 @@ let list_map_filter f l =
   in
   aux [] l
 
-open Commands
-
 (* Inputs *)
 
 type input =

@@ -11,10 +11,6 @@ open MoreCSTHelpers
 
 let name = "commands"
 
-let options = [
-    "--specification", Arg.String Commands.load_commands_specification, "FILE Load commands specification from FILE"
-  ]
-
 (* ===================== [ Specifications of commands ] ===================== *)
 
 module Specification = struct
@@ -120,6 +116,12 @@ module Specification = struct
     with
       Not_found -> o
 end
+
+(* ============================== [ Options ] =============================== *)
+
+let options = [
+    "--specification", Arg.String Specification.load_commands_from_file, "FILE Load commands specification from FILE"
+  ]
 
 (* ====================== [ Simple Arguments Parser ] ======================= *)
 
@@ -242,8 +244,39 @@ let output_report report =
                  ))
                  arg_batches
               )
+            ) ;
+          Heading (
+              "Sort by argument",
+              (* Take all the commands talking about the same name. *)
+              command_batch
+              |> List.map
+                   (fun command ->
+                     (* For each command, generate a list of the form
+                        (used_argument, command) *)
+                     command.arguments
+                     |> List.uniq
+                     |> List.map
+                          (fun argument ->
+                            (argument, command)))
+              (* Flatten everything. We end up on a huge list of the
+                 form (used_argument, command) for all commands *)
+              |> List.flatten
+              (* Sort and batch them by argument *)
+              |> List.sort_batch (fun (arg1, _) (arg2, _) -> compare arg1 arg2)
+              (* Generate the report: one heading by argument containing the list of files. *)
+              |> List.map
+                   (fun arg_batch ->
+                     Heading (
+                         (f "%05d %s" (List.length arg_batch) (arg_batch |> List.hd |> fst)),
+                         [ List
+                             (List.map
+                                (fun (_, command) ->
+                                  [String (f "%s, line %d" (Report.link_to_source report command.filename) command.line)])
+                                arg_batch) ]
+                   ))
             )
-    ])
+      ]
+    )
     command_batches;
 
   (* General report *)

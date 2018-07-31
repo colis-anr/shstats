@@ -9,7 +9,6 @@
 open ExtPervasives
 open Libmorbig.CST
 open Options
-open Commands
 open Messages
 
 (*

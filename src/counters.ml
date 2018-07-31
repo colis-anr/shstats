@@ -36,7 +36,7 @@ end
 
 let indent_string s n =
   let sep = "\n" ^ (String.make n ' ') in
-  String.concat sep (ExtPervasives.split_on_char '\n' s)
+  String.concat sep (String.split_on_char '\n' s)
 
 class occCounter (name: string) = object (self)
   inherit [string, string] counter name as super

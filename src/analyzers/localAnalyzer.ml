@@ -9,7 +9,6 @@
 open ExtPervasives
 open MoreCSTHelpers
 open Options
-open Commands
 open Messages
 
 (*

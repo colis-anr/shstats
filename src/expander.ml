@@ -9,7 +9,6 @@
 open ExtPervasives
 open Libmorbig.CST
 open Options
-open Commands
 open Messages
 
 let debug s1 s2 = Printf.printf "DEB %s: %s\n" s1 s2

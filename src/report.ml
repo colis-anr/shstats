@@ -95,7 +95,7 @@ let add_org report org =
 
 let safe_source_path source =
   let target =
-    ExtPervasives.split_on_char '/' source
+    String.split_on_char '/' source
     |> List.filter (function "." | ".." -> false | _ -> true)
     |> String.concat "/"
   in

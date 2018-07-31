@@ -10,7 +10,6 @@ open ExtPervasives
 open Libmorbig.CST
 open Libmorbig.CSTHelpers
 open Options
-open Commands
 open Messages
 
 let name = "miscellaneous"
