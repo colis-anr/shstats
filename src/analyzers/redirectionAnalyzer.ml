@@ -44,68 +44,40 @@ let is_quoted word =
   || String.index_opt word '\\' <> None
 
 type a_descr =
-  | None
   | Int of int
-  | Expandable
+  | Other
 
 let pp_a_descr fmt = function
-  | None -> ()
   | Int i -> Format.pp_print_int fmt i
-  | Expandable -> Format.pp_print_string fmt "{expandable}"
+  | Other -> ()
 
 let a_descr_of_io_number = function
   | IONumber n ->
      try Int (int_of_string n)
-     with _ -> Expandable
+     with _ -> Other
 
 let a_descr_of_filename = function
   | Filename_Word {value=Word (word, _);_} ->
      try Int (int_of_string word)
-     with _ -> Expandable
+     with _ -> Other
 
 type a_file =
   | DevNull
-  | Constant
-  | Expandable
+  | Other
 
 let pp_a_file fmt a_file =
   Format.pp_print_string
     fmt
     (match a_file with
      | DevNull -> "/dev/null"
-     | Constant -> "{constant}"
-     | Expandable -> "{expandable}")
+     | Other -> "")
 
 let a_file_of_filename = function
   | Filename_Word {value=Word (word, _);_} ->
      if word = "/dev/null" then
        DevNull
-     else if is_expandable word then
-       Expandable
      else
-       Constant
-
-type a_delim =
-  | Unquoted
-  | Quoted
-  | Expandable
-
-let pp_a_delim fmt a_delim =
-  Format.pp_print_string
-    fmt
-    (match a_delim with
-     | Unquoted -> "{unquoted}"
-     | Quoted -> "{quoted}"
-     | Expandable -> "{expandable}")
-
-let a_delim_of_here_end = function
-  | HereEnd_Word {value=Word (word, _);_} ->
-     if is_expandable word then
-       Expandable
-     else if is_quoted word then
-       Quoted
-     else
-       Unquoted
+       Other
 
 type a_redirection =
   | Output of a_descr * a_file
@@ -115,7 +87,7 @@ type a_redirection =
   | Input of a_descr * a_file
   | InputDuplicate of a_descr * a_descr
   | InputOutput of a_descr * a_file
-  | Here of a_descr * bool * a_delim
+  | Here of a_descr * bool
 
 let pp_a_redirection fmt =
   let p = Format.fprintf in
@@ -134,8 +106,8 @@ let pp_a_redirection fmt =
      p fmt "%a<&%a" pp_a_descr a_descr_1 pp_a_descr a_descr_2
   | InputOutput (a_descr, a_file) ->
      p fmt "%a<>%a" pp_a_descr a_descr pp_a_file a_file
-  | Here (a_descr, strip, a_delim) ->
-     p fmt "%a<<%s%a" pp_a_descr a_descr (if strip then "-" else "") pp_a_delim a_delim
+  | Here (a_descr, strip) ->
+     p fmt "%a<<%s" pp_a_descr a_descr (if strip then "-" else "")
 
 let rec pp_a_redirection_list fmt = function
   | [] -> Format.fprintf fmt "{empty}"
@@ -146,35 +118,35 @@ let rec pp_a_redirection_list fmt = function
 
 let a_redirection_of_io_file a_descr = function
   | IoFile_Less_FileName filename' ->
-     Input (a_descr, a_file_of_filename filename'.value)
+     Input (unwrap_or (Int 0) a_descr, a_file_of_filename filename'.value)
   | IoFile_LessAnd_FileName filename' ->
-     InputDuplicate (a_descr, a_descr_of_filename filename'.value)
+     InputDuplicate (unwrap_or (Int 0) a_descr, a_descr_of_filename filename'.value)
   | IoFile_Great_FileName filename' ->
-     Output (a_descr, a_file_of_filename filename'.value)
+     Output (unwrap_or (Int 1) a_descr, a_file_of_filename filename'.value)
   | IoFile_GreatAnd_FileName filename' ->
-     OutputDuplicate (a_descr, a_descr_of_filename filename'.value)
+     OutputDuplicate (unwrap_or (Int 1) a_descr, a_descr_of_filename filename'.value)
   | IoFile_DGreat_FileName filename' ->
-     OutputAppend (a_descr, a_file_of_filename filename'.value)
+     OutputAppend (unwrap_or (Int 1) a_descr, a_file_of_filename filename'.value)
   | IoFile_LessGreat_FileName filename' ->
-     InputOutput (a_descr, a_file_of_filename filename'.value)
+     InputOutput (unwrap_or (Int 0) a_descr, a_file_of_filename filename'.value)
   | IoFile_Clobber_FileName filename' ->
-     OutputClobber (a_descr, a_file_of_filename filename'.value)
+     OutputClobber (unwrap_or (Int 1) a_descr, a_file_of_filename filename'.value)
 
 let a_redirection_of_io_here a_descr = function
   | IoHere_DLess_HereEnd (here_end', _) ->
-     Here (a_descr, false, a_delim_of_here_end here_end'.value)
+     Here (unwrap_or (Int 0) a_descr, false)
   | IoHere_DLessDash_HereEnd (here_end', _) ->
-     Here (a_descr, true, a_delim_of_here_end here_end'.value)
+     Here (unwrap_or (Int 0) a_descr, true)
 
 let a_redirection_of_io_redirect = function
   | IoRedirect_IoFile io_file' ->
      a_redirection_of_io_file None io_file'.value
   | IoRedirect_IoNumber_IoFile (io_number, io_file') ->
-     a_redirection_of_io_file (a_descr_of_io_number io_number) io_file'.value
+     a_redirection_of_io_file (Some (a_descr_of_io_number io_number)) io_file'.value
   | IoRedirect_IoHere io_here' ->
      a_redirection_of_io_here None io_here'.value
   | IoRedirect_IoNumber_IoHere (io_number, io_here') ->
-     a_redirection_of_io_here (a_descr_of_io_number io_number) io_here'.value
+     a_redirection_of_io_here (Some (a_descr_of_io_number io_number)) io_here'.value
 
 (* =============================== [ Result ] =============================== *)
 
@@ -336,7 +308,7 @@ let output_report report =
 
   List.iter
     (fun batch_location ->
-      Report.add report "** %5d %a\n"
+      Report.add report "** %05d %a\n"
         (List.length batch_location)
         pp_location (List.hd batch_location).location;
 
@@ -366,7 +338,7 @@ let output_report report =
 
   List.iter
     (fun batch_abstract ->
-      Report.add report "** %5d %a\n"
+      Report.add report "** %05d %a\n"
         (List.length batch_abstract)
         pp_a_redirection_list (List.hd batch_abstract).abstract;
 

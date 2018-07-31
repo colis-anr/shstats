@@ -185,3 +185,11 @@ let extract p1 p2 = (* FIXME: poorly chosen name *)
   really_input ic buf (p1.pos_cnum - p1.pos_bol) (p2.pos_cnum - p1.pos_cnum);
   close_in ic;
   Bytes.to_string buf
+
+let unwrap = function
+  | None -> failwith "unwrap"
+  | Some x -> x
+
+let unwrap_or y = function
+  | None -> y
+  | Some x -> x
