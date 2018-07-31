@@ -61,13 +61,14 @@ module Specification = struct
           (fun name -> Hashtbl.add options name option)
           names)
 
-  let rec load_options_from_lines options = function
+  let rec load_options_from_lines options =
+    function
     | [] -> []
     | line :: lines when line.[1] = '*' ->
-       line :: lines
-    | line :: lines ->
        load_options_from_line options line;
        load_options_from_lines options lines
+    | lines ->
+       lines
 
   let load_command_from_line line =
     Scanf.sscanf line "* %s %B %B %B"

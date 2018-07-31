@@ -45,7 +45,6 @@ let assigned_by_word w =
             in first::(collect_from (Str.match_end ()))
        with Not_found -> []
      in collect_from 0
-;;
 
 (* returns a list of the words in in a [cmd_suffix] in reverse order. *)
 let rec cmd_suffix_to_list = function
