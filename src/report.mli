@@ -14,7 +14,11 @@ val commit : t -> string -> unit
 
 val add : t -> ('a, Format.formatter, unit) format -> 'a
 val add_org : t -> Org.t -> unit
-  
+
+(** {2 Org shortcuts} *)
+
+val sourcesList : t -> (string * int) list -> Org.t
+
 (** {3 Link utilities} *)
 
 val link_to_subreport : t -> ?text:string -> string -> string

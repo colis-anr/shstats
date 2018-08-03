@@ -280,16 +280,12 @@ let process_script filename csts =
 
 (* =========================== [ Output Report ] ============================ *)
 
-let output_result report result =
-  Report.add report "- %s, line %d\n"
-    (Report.link_to_source report result.filename)
-    ((List.hd result.concrete)
-       .position
-       .start_p
-       .pos_lnum)
-
-let output_results report results =
-  List.iter (output_result report) results
+let results_to_sources_list results =
+  List.map
+    (fun result ->
+      (result.filename,
+       (List.hd result.concrete).position.start_p.pos_lnum))
+    results
 
 let output_report report =
   Report.add
@@ -321,7 +317,7 @@ let output_report report =
       List.iter
         (fun batch_abstract ->
           Report.add report "*** %a\n" pp_a_redirection_list (List.hd batch_abstract).abstract;
-          output_results report batch_abstract)
+          Report.(add_org report (sourcesList report (results_to_sources_list batch_abstract))))
         batches_abstract)
     batches_location;
 
@@ -334,22 +330,31 @@ let output_report report =
       !results
   in
 
-  Report.add report "* Sorted by abstraction\n";
+  Report.add_org
+    report
+    Org.[
+      Heading (
+          "Sorted by abstraction",
 
-  List.iter
-    (fun batch_abstract ->
-      Report.add report "** %05d %a\n"
-        (List.length batch_abstract)
-        pp_a_redirection_list (List.hd batch_abstract).abstract;
+          List.map
+            (fun batch_abstract ->
+              Heading (
+                  f "%05d %a" (List.length batch_abstract) pp_a_redirection_list (List.hd batch_abstract).abstract,
 
-      let batches_location =
-        List.sort_batch_sort
-          (fun r s -> compare r.location s.location)
-          batch_abstract
-      in
-      List.iter
-        (fun batch_location ->
-          Report.add report "*** %a\n" pp_location (List.hd batch_location).location;
-          output_results report batch_location)
-        batches_location)
-    batches_abstract
+                  let batches_location =
+                    List.sort_batch_sort
+                      (fun r s -> compare r.location s.location)
+                      batch_abstract
+                  in
+                  List.map
+                    (fun batch_location ->
+                      Heading (
+                          f "%a" pp_location (List.hd batch_location).location,
+
+                          Report.sourcesList report
+                            (results_to_sources_list batch_location)
+                    ))
+                    batches_location
+            ))
+            batches_abstract
+  )]

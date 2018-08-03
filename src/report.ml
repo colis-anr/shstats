@@ -88,11 +88,6 @@ let add report = Format.fprintf report.formatter
 let add_org report org =
   add report "%a" Org.pp_print org
 
-
-
-
-
-
 let safe_source_path source =
   let target =
     String.split_on_char '/' source
@@ -102,10 +97,6 @@ let safe_source_path source =
   ExtPervasives.remove_extension target
   ^ "." ^ (hash source)
   ^ ExtPervasives.extension target
-
-
-
-
 
 (* =========================== [ Link utilities ] =========================== *)
 
@@ -146,11 +137,19 @@ let link_to_source report ?(text="") source =
   in
   link_to_file path (if text = "" then source else text)
 
+(* ======================= [ Specific org shortcuts ] ======================= *)
 
+let sourcesList report sources =
+  [Org.List
+     (List.map
+        (fun (source, line) ->
+          [Org.String (
+               link_to_source report source
+               ^ ", line "
+               ^ string_of_int line)])
+        sources)]
 
-
-
-
+(* =============================== [ Commit ] =============================== *)
 
 let rec commit_aux report path =
   Format.pp_print_flush report.formatter ();
