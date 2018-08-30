@@ -274,7 +274,7 @@ let process_script filename csts =
          | _ -> self#zero)
         (super#visit_simple_command () simple_command)
     end in
-  visitor#visit_complete_command_list () csts
+  visitor#visit_program () csts
   |> (fun file_results -> file_results @ !results)
   |> ((:=) results)
 

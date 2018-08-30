@@ -6,6 +6,4 @@
 (*  under the terms of the GNU General Public License, version 3.         *)
 (**************************************************************************)
 
-open Libmorbig.CST
-
-val expand : complete_command_list -> complete_command_list
+val expand : Libmorbig.CST.program -> Libmorbig.CST.program

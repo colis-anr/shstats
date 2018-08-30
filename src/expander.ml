@@ -481,7 +481,7 @@ let expand cst =
             the effect of assignments from left to right.
        *)
 
-      method! visit_complete_command_list env cst =
+      method! visit_program env cst =
         match cst with
         | [] -> ([], Effect.zero)
         | h::r ->
@@ -489,7 +489,7 @@ let expand cst =
              self#visit_complete_command env h
            in
            let (rt,re) =
-             self#visit_complete_command_list
+             self#visit_program
                (Effect.compose_env env he) r
            in
            (ht::rt, Effect.compose he re)
@@ -543,4 +543,4 @@ let expand cst =
           -> super#visit_cmd_prefix env cst
     end
   in
-  fst (expand_and_effect#visit_complete_command_list Env.zero cst)
+  fst (expand_and_effect#visit_program Env.zero cst)

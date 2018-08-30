@@ -203,7 +203,7 @@ let process_script filename csts =
            { filename ; line = lnum cmd_name' ; name = unCmdName' cmd_name' ;
              arguments = [] }
   end in
-  visitor#visit_complete_command_list () csts
+  visitor#visit_program () csts
 
 let output_report report =
   let commands = get_commands () in

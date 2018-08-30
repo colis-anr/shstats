@@ -79,7 +79,7 @@ let process_script filename cst =
 
     end
   in
-  detect_local#visit_complete_command_list
+  detect_local#visit_program
     {in_function=false;in_branching=false}
     cst
 

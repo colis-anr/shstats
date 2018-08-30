@@ -77,7 +77,7 @@ let process_script filename cst =
     
     end
   in
-  if detect_dollar#visit_complete_command_list [] cst
+  if detect_dollar#visit_program [] cst
   then 
     scripts_with_dollar := filename::!scripts_with_dollar
 
