@@ -92,7 +92,7 @@ let process_script filename csts =
 	                                                     self#visit_until_clause' () u
 	                                                )
                 end in
-  List.iter (counter#visit_complete_command ()) csts;
+  counter#visit_program () csts;
   let number_variables = ref 0
   and number_constants = ref 0
   in

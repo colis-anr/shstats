@@ -481,19 +481,26 @@ let expand cst =
             the effect of assignments from left to right.
        *)
 
-      method! visit_program env cst =
+      method! visit_complete_commands env cst =
         match cst with
-        | [] -> ([], Effect.zero)
-        | h::r ->
-           let (ht,he) =
-             self#visit_complete_command env h
+        | CompleteCommands_CompleteCommands_NewlineList_CompleteCommand
+          (ccs',nl',cc') ->
+           let (ccst,ccse) =
+             self#visit_complete_commands' env ccs'
            in
-           let (rt,re) =
-             self#visit_program
-               (Effect.compose_env env he) r
+           let (cct,cce) =
+             self#visit_complete_command'
+               (Effect.compose_env env ccse) cc'
            in
-           (ht::rt, Effect.compose he re)
-
+           (
+             CompleteCommands_CompleteCommands_NewlineList_CompleteCommand
+               (ccst,nl',cct)
+           ,
+             Effect.compose ccse cce
+           )
+        | CompleteCommands_CompleteCommand(cc') ->
+           super#visit_complete_commands env cst
+          
       method! visit_clist env cst = match cst with
         | CList_CList_SeparatorOp_AndOr(clist',separator_op',and_or') ->
            let (clv',cle) = self#visit_clist' env clist'

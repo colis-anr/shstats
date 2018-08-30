@@ -329,7 +329,7 @@ let process_script filename csts =
                        in_fundef := false
                     | _ -> super#visit_command () csts
                 end in
-  List.iter (counter#visit_complete_command ()) csts
+  counter#visit_program () csts
   
 let output_report report =
   Report.add report "* Test invocations\n";

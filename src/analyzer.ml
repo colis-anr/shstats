@@ -18,7 +18,7 @@ module type S = sig
   (** [process_script script csts] analyzes the concrete syntax trees
       [csts] of the [script]. The retrieved information is stored in
       the internal state of the analyzer. *)
-  val process_script : string -> Libmorbig.CST.complete_command list -> unit
+  val process_script : string -> Libmorbig.CST.program -> unit
 
   (** Once all scripts are processed, the following function is called
       once. It is supposed to write a report about the analysis. The

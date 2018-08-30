@@ -141,10 +141,8 @@ module Handler = struct
     val reads = ref 0
 
     method handle_while_compound_list = function
-      | CompoundList_Term t
-      | CompoundList_NewLineList_Term (_, t)
-      | CompoundList_Term_Separator (t, _)
-      | CompoundList_NewLineList_Term_Separator (_, t, _) ->
+      | CompoundList_LineBreak_Term (_, t)
+      | CompoundList_LineBreak_Term_Separator (_, t, _) ->
          (
            match t.value with
            | Term_AndOr aop ->
@@ -279,7 +277,7 @@ let process_script filename csts =
                     | SeparatorOp_Semicolon ->
                        ()
                 end in
-  List.iter (counter#visit_complete_command ()) csts
+  counter#visit_program () csts
 
 let output_report report =
   Report.add report "* Structures\n";

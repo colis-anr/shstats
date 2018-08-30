@@ -161,7 +161,7 @@ let process_script filename csts =
                     | CmdName_Word w ->
                        self#add_edge_to (unWord w.value)
                 end in
-  List.iter (counter#visit_complete_command ()) csts;
+  counter#visit_program () csts;
   try
     SGraph.check_acyclic (counter#get_dep_graph ())
   with

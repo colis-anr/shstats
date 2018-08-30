@@ -174,7 +174,7 @@ let process_script filename csts =
                        self#visit_cmd_name' () cn;
                        cmd_string_counter#handle filename (unWord w'.value) ssc
                 end in
-  List.iter (counter#visit_complete_command ()) csts
+  counter#visit_program () csts
 
 let output_report report =
   let open Report in
