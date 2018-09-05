@@ -7,8 +7,8 @@
 (**************************************************************************)
 
 open ExtPervasives
-open Libmorbig.CST
-open Libmorbig.CSTHelpers
+open Morbig.CST
+open Morbig.CSTHelpers
 open Options
 open Messages
 
@@ -126,7 +126,7 @@ let cmd_string_counter = new cmd_string_counter
 
 let process_script filename csts =
   let counter = object (self)
-                  inherit [_] Libmorbig.CST.iter as super
+                  inherit [_] Morbig.CST.iter as super
 
                   method! visit_cmd_prefix () = function
                     | CmdPrefix_IoRedirect i ->

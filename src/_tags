@@ -1,4 +1,4 @@
 <analyzers>: include
 <ext>: include
-true : package(libmorbig)
+true : package(morbig)
 true: use_unix

@@ -44,7 +44,7 @@ let register_local env cmd script =
 let process_script filename cst =
   let detect_local =
     object (self)
-      inherit [_] Libmorbig.CST.iter as super
+      inherit [_] Morbig.CST.iter as super
 
       method! visit_simple_command env = function
         | SimpleCommand_CmdPrefix_CmdWord_CmdSuffix(_,cmd_word',_)

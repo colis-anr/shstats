@@ -7,7 +7,7 @@
 (**************************************************************************)
 
 open ExtPervasives
-open Libmorbig.CST
+open Morbig.CST
 open Options
 open Messages
 
@@ -20,11 +20,11 @@ module Name =
 module NameSet = Set.Make(Name)
 
 let unCmdName' {value=CmdName_Word word} =
-  Libmorbig.CSTHelpers.unWord word.value
+  Morbig.CSTHelpers.unWord word.value
 let unCmdWord' {value=CmdWord_Word word} =
-  Libmorbig.CSTHelpers.unWord word.value
+  Morbig.CSTHelpers.unWord word.value
 let unWord' {value=word} =
-  Libmorbig.CSTHelpers.unWord word
+  Morbig.CSTHelpers.unWord word
                                                                        
 let extract_command = function
   | SimpleCommand_CmdPrefix_CmdWord_CmdSuffix (_,cmdword',_)
@@ -292,7 +292,7 @@ let process_script filename csts =
   in
   
   let register_test filename invocation arguments =
-    let arguments_unquoted = List.map UnQuote.on_string arguments
+    let arguments_unquoted = List.map Morbig.API.remove_quotes arguments
     and is_bracket = (invocation = "[" )
     in
     incr count_testinvocations;
@@ -312,7 +312,7 @@ let process_script filename csts =
   in
   
   let counter = object(self)
-                  inherit [_] Libmorbig.CST.iter as super
+                  inherit [_] Morbig.CST.iter as super
 
                   method! visit_simple_command () csts =
                     let invocation = extract_command csts in

@@ -22,9 +22,9 @@ let list_map_filter f l =
 
 type input =
   | Source
-  | Parsed of Libmorbig.CST.program
-  | Expanded of Libmorbig.CST.program
-  | Loaded of Libmorbig.CST.program
+  | Parsed of Morbig.CST.program
+  | Expanded of Morbig.CST.program
+  | Loaded of Morbig.CST.program
   | Error of string
 
 let cache filename =
@@ -32,7 +32,7 @@ let cache filename =
 
 let load_cache_file filename =
   let cin = open_in filename in
-  let csts : Libmorbig.CST.program =
+  let csts : Morbig.CST.program =
     input_value cin in
   close_in cin;
   csts
@@ -47,7 +47,7 @@ let json filename =
 
 let save_json_file filename csts =
   let cout = open_out filename in
-  Yojson.Safe.pretty_to_channel cout (Libmorbig.CST.program_to_yojson csts);
+  Yojson.Safe.pretty_to_channel cout (Morbig.CST.program_to_yojson csts);
   close_out cout
 
 (* Helpers *)
@@ -130,7 +130,7 @@ let files =
             (
               Progress.incr pl;
               try
-                Parsed (Libmorbig.API.parse_file filename)
+                Parsed (Morbig.API.parse_file filename)
               with
                 _ ->
                 incr invalid_files;

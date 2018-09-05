@@ -7,8 +7,8 @@
 (**************************************************************************)
 
 open ExtPervasives
-open Libmorbig.CST
-open Libmorbig.CSTHelpers
+open Morbig.CST
+open Morbig.CSTHelpers
 open Options
 open Messages
 
@@ -217,7 +217,7 @@ let while_handler = new Handler.whileHandler "while"
 
 let process_script filename csts =
   let counter = object (self)
-                  inherit [_] Libmorbig.CST.iter as super
+                  inherit [_] Morbig.CST.iter as super
 
                   method! visit_and_or () = function
                     | AndOr_Pipeline p ->

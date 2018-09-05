@@ -7,22 +7,22 @@
 (**************************************************************************)
 
 open ExtPervasives
-open Libmorbig.CST
+open Morbig.CST
 open Options
 open Messages
 
 let debug s1 s2 = Printf.printf "DEB %s: %s\n" s1 s2
 
 let unWord' {value=word} =
-  Libmorbig.CSTHelpers.unWord word
+  Morbig.CSTHelpers.unWord word
 let unCmdWord' {value=CmdWord_Word word} =
-  Libmorbig.CSTHelpers.unWord word.value
-let unWord word = Libmorbig.CSTHelpers.unWord word
+  Morbig.CSTHelpers.unWord word.value
+let unWord word = Morbig.CSTHelpers.unWord word
 let unName' {value=name} =
-  Libmorbig.CSTHelpers.unName name
+  Morbig.CSTHelpers.unName name
 let unCmdName' {value=CmdName_Word word} =
-  Libmorbig.CSTHelpers.unWord word.value
-let unName name = Libmorbig.CSTHelpers.unName name
+  Morbig.CSTHelpers.unWord word.value
+let unName name = Morbig.CSTHelpers.unName name
 
 let is_special_builtin s =
   List.mem s
@@ -298,7 +298,7 @@ let expand cst =
   in
   let expand_and_effect =
     object(self)
-      inherit [_] Libmorbig.CST.mapreduce as super
+      inherit [_] Morbig.CST.mapreduce as super
       method zero = Effect.zero
       method plus x y = Effect.plus x y
 
@@ -350,7 +350,7 @@ let expand cst =
            let (prev',pree) = self#visit_cmd_prefix' env pre'
            and (cwv',cwe) = self#visit_cmd_word' env cw'
            and (sufv',sufe) = self#visit_cmd_suffix' env suf' in
-           let cmd = UnQuote.on_string (unCmdWord' cwv') in
+           let cmd = Morbig.API.remove_quotes (unCmdWord' cwv') in
            (
              SimpleCommand_CmdPrefix_CmdWord_CmdSuffix (prev',cwv',sufv')
            ,
@@ -359,7 +359,7 @@ let expand cst =
         | SimpleCommand_CmdPrefix_CmdWord (pre',cw') ->
            let (prev',pree) = self#visit_cmd_prefix' env pre'
            and (cwv',cwe) = self#visit_cmd_word' env cw' in
-           let cmd = UnQuote.on_string (unCmdWord' cwv') in
+           let cmd = Morbig.API.remove_quotes (unCmdWord' cwv') in
            (
              SimpleCommand_CmdPrefix_CmdWord (prev',cwv')
            ,
@@ -375,7 +375,7 @@ let expand cst =
            )
         | SimpleCommand_CmdName_CmdSuffix (nam',suf') ->
            let (sufv',sufe) = self#visit_cmd_suffix' env suf' in
-           let cmd = UnQuote.on_string (unCmdName' nam')
+           let cmd = Morbig.API.remove_quotes (unCmdName' nam')
            in
            (
              SimpleCommand_CmdName_CmdSuffix (nam',sufv')
@@ -385,7 +385,7 @@ let expand cst =
            )
         | SimpleCommand_CmdName nam' ->
            let (cnv',cne) = self#visit_cmd_name' env nam' in
-           let cmd = UnQuote.on_string (unCmdName' cnv')
+           let cmd = Morbig.API.remove_quotes (unCmdName' cnv')
            in
            (
              SimpleCommand_CmdName cnv'

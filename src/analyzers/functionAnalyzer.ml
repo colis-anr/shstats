@@ -6,8 +6,8 @@
 (*  under the terms of the GNU General Public License, version 3.         *)
 (**************************************************************************)
 
-open Libmorbig.CST
-open Libmorbig.CSTHelpers
+open Morbig.CST
+open Morbig.CSTHelpers
 
 (* module of graphs with cycle check *)
 module Graph (Key : Map.OrderedType) =
@@ -102,7 +102,7 @@ let ppf_duplicates = Format.formatter_of_buffer buf_duplicates
 
 let process_script filename csts =
   let counter = object (self)
-                  inherit [_] Libmorbig.CST.iter as super
+                  inherit [_] Morbig.CST.iter as super
                         
                   val functions_stack =
                     let s = Stack.create () in

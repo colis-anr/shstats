@@ -7,7 +7,7 @@
 (**************************************************************************)
 
 open ExtPervasives
-open Libmorbig.CST
+open Morbig.CST
 
 let name = "redirection"
 let options = []

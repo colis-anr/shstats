@@ -6,4 +6,4 @@
 (*  under the terms of the GNU General Public License, version 3.         *)
 (**************************************************************************)
 
-val expand : Libmorbig.CST.program -> Libmorbig.CST.program
+val expand : Morbig.CST.program -> Morbig.CST.program

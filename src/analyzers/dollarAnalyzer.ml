@@ -7,7 +7,7 @@
 (**************************************************************************)
 
 open ExtPervasives
-open Libmorbig.CST
+open Morbig.CST
 open Options
 open Messages
 
@@ -17,8 +17,8 @@ open Messages
       been expanded by the expander. 
     *)
    
-let unWord word = Libmorbig.CSTHelpers.unWord word
-let unName' name' = Libmorbig.CSTHelpers.unName name'.value
+let unWord word = Morbig.CSTHelpers.unWord word
+let unName' name' = Morbig.CSTHelpers.unName name'.value
 
 let options = []
             
@@ -35,7 +35,7 @@ let scripts_with_dollar = ref ([]: string list)
 let process_script filename cst =
   let detect_dollar =
     object (self)
-      inherit [_] Libmorbig.CST.reduce as super
+      inherit [_] Morbig.CST.reduce as super
       method zero = false
       method plus = (||)
       method! visit_word for_variables word =
@@ -45,7 +45,7 @@ let process_script filename cst =
           Str.regexp ("\\$\\(" ^ re_parname ^ "\\)" ^
                         "\\|\\${\\(" ^ re_parname ^ "\\)}") in
         (* does not match stuff like $1, $2, $@, etc on purpose *)
-        let s = (UnQuote.on_string (unWord word)) in
+        let s = (Morbig.API.remove_quotes (unWord word)) in
         if
           Str.string_match re_parameter s 0
         then

@@ -7,7 +7,7 @@
 (**************************************************************************)
 
 open ExtPervasives
-open Libmorbig.CST
+open Morbig.CST
 open Options
 open Messages
 
@@ -44,7 +44,7 @@ let process_script filename csts =
         (if Hashtbl.mem identifiers x then Variable else Constant)
   in
   let counter = object (self)
-                  inherit [_] Libmorbig.CST.iter as super
+                  inherit [_] Morbig.CST.iter as super
 
                   val complex_context_level = ref 0 (* Nesting level of complex contexts. *)
 

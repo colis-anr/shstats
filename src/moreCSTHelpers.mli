@@ -6,7 +6,7 @@
 (*  under the terms of the GNU General Public License, version 3.         *)
 (**************************************************************************)
 
-open Libmorbig.CST
+open Morbig.CST
 
 val lnum : 'a located -> int
 

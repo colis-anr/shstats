@@ -6,8 +6,8 @@
 (*  under the terms of the GNU General Public License, version 3.         *)
 (**************************************************************************)
 
-open Libmorbig.CST
-open Libmorbig.CSTHelpers
+open Morbig.CST
+open Morbig.CSTHelpers
 
 let lnum located =
   located.position.start_p.pos_lnum

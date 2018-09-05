@@ -180,7 +180,7 @@ let arguments_of_suffix' command =
 
 let process_script filename csts =
   let visitor = object (self)
-    inherit [_] Libmorbig.CST.iter as super
+    inherit [_] Morbig.CST.iter as super
 
     method! visit_simple_command () = function
       | SimpleCommand_CmdPrefix_CmdWord_CmdSuffix (_, cmd_word', cmd_suffix') ->
