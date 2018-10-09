@@ -73,6 +73,7 @@ let () =
       (module TestAnalyzer) ;
       (module DollarAnalyzer) ;
       (module LocalAnalyzer) ;
+      (module DotAnalyzer) ;
     ]
 
   (* Parse command line *)
