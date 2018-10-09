@@ -67,11 +67,14 @@ let process_script filename cst =
   detect_includes#visit_program () cst
 
 let output_report report =
+  let sorted_absolute =
+    List.sort_uniq Pervasives.compare (!absolute_paths)
+  in
   Report.add report "** Included files with absolute path\n";
   List.iter
     (function path ->
        Report.add report "  %s\n" path)
-    (List.sort_uniq Pervasives.compare (!absolute_paths));
+    sorted_absolute;
   Report.add report "** Included files with expandable path\n";
   List.iter
     (function (scriptname,path) ->
@@ -81,6 +84,12 @@ let output_report report =
   List.iter
     (function (scriptname,path) ->
        Report.add report "  %s: %s\n" scriptname path)
-    (!relative_paths)
-  
+    (!relative_paths);
+  let oc = open_out "includes-absolute"
+  in begin
+      List.iter
+        (function path -> output_string oc path; output_string oc "\n" )
+        sorted_absolute;
+      close_out oc
+    end
               
