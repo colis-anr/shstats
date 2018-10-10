@@ -7,6 +7,7 @@
 (**************************************************************************)
 
 open ExtPervasives
+open Morbig.CST
 open MoreCSTHelpers
 open Options
 open Messages

@@ -136,8 +136,8 @@ module Env = struct
       Str.global_substitute (Str.regexp re_parameter) lookup_var w
     (* FIXME as soon as morbig builds a proper word_cst *)
     and expand_word_component wc = wc
-
-    in Word (expand_inside_word w,[])
+    in
+    Word (expand_inside_word w,[])
 
   let ground_instance env w =
     let w_instance = expand_variables env w

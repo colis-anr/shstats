@@ -7,6 +7,7 @@
 (**************************************************************************)
 
 open ExtPervasives
+open Morbig.CST
 open MoreCSTHelpers
 
 let name = "commands"
@@ -128,7 +129,7 @@ let options = [
 
 let has_accumulating_arguments command =
   try
-    (Hashtbl.find Specification.commands command).options_accumulate
+    (Hashtbl.find Specification.commands command).Specification.options_accumulate
   with
     Not_found -> false
 
