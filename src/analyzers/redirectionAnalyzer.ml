@@ -34,14 +34,14 @@ let pp_location fmt location =
      | Simple Both -> "both prefix and suffix of a simple command")
 
 (* ============== [ Abstract representation of redirections ] =============== *)
-
+  
 let is_expandable word =
-  String.index_opt word '$' <> None
+  String.contains word '$'
 
 let is_quoted word =
-  String.index_opt word '\'' <> None
-  || String.index_opt word '"' <> None
-  || String.index_opt word '\\' <> None
+  String.contains word '\''
+  || String.contains word '"'
+  || String.contains word '\\'
 
 type a_descr =
   | Int of int
