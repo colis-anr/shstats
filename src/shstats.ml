@@ -74,6 +74,7 @@ let () =
       (module DollarAnalyzer) ;
       (module LocalAnalyzer) ;
       (module DotAnalyzer) ;
+      (module DotdotPathAnalyzer) ;
     ]
 
   (* Parse command line *)
