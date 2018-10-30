@@ -6,7 +6,7 @@ fold_end () { printf 'travis_fold:end:%s\r' "$1"; }
 
 ## APT dependencies
 fold_start apt_deps 'Install APT dependencies...'
-sudo apt-get install ocaml aspcud
+sudo apt-get install ocaml
 fold_end apt_deps
 
 ## Install OPAM
