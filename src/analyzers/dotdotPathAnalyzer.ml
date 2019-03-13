@@ -32,7 +32,7 @@ let process_script filename cst =
       method plus = (||)
       method! visit_word for_variables word =
         let re_dotdot = Str.regexp "\\.\\." in
-        let s = (Morbig.API.remove_quotes (unWord word)) in
+        let s = (Morbig.remove_quotes (unWord word)) in
         Str.string_match re_dotdot s 0
     end
   in

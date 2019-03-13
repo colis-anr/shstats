@@ -44,7 +44,7 @@ let expandable s =
 
 let process_script filename cst =
   let extract_cmd_suffix = function
-    | CmdSuffix_Word(w') -> Morbig.API.remove_quotes (unWord' w')
+    | CmdSuffix_Word(w') -> Morbig.remove_quotes (unWord' w')
     | _ -> failwith ("This cannot happen: " ^ filename)
   in let detect_includes =
        object (self)

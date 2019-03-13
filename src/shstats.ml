@@ -132,7 +132,7 @@ let files =
             (
               Progress.incr pl;
               try
-                Parsed (Morbig.API.parse_file filename)
+                Parsed (Morbig.parse_file filename)
               with
                 _ ->
                 incr invalid_files;

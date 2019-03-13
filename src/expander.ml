@@ -350,7 +350,7 @@ let expand cst =
            let (prev',pree) = self#visit_cmd_prefix' env pre'
            and (cwv',cwe) = self#visit_cmd_word' env cw'
            and (sufv',sufe) = self#visit_cmd_suffix' env suf' in
-           let cmd = Morbig.API.remove_quotes (unCmdWord' cwv') in
+           let cmd = Morbig.remove_quotes (unCmdWord' cwv') in
            (
              SimpleCommand_CmdPrefix_CmdWord_CmdSuffix (prev',cwv',sufv')
            ,
@@ -359,7 +359,7 @@ let expand cst =
         | SimpleCommand_CmdPrefix_CmdWord (pre',cw') ->
            let (prev',pree) = self#visit_cmd_prefix' env pre'
            and (cwv',cwe) = self#visit_cmd_word' env cw' in
-           let cmd = Morbig.API.remove_quotes (unCmdWord' cwv') in
+           let cmd = Morbig.remove_quotes (unCmdWord' cwv') in
            (
              SimpleCommand_CmdPrefix_CmdWord (prev',cwv')
            ,
@@ -375,7 +375,7 @@ let expand cst =
            )
         | SimpleCommand_CmdName_CmdSuffix (nam',suf') ->
            let (sufv',sufe) = self#visit_cmd_suffix' env suf' in
-           let cmd = Morbig.API.remove_quotes (unCmdName' nam')
+           let cmd = Morbig.remove_quotes (unCmdName' nam')
            in
            (
              SimpleCommand_CmdName_CmdSuffix (nam',sufv')
@@ -385,7 +385,7 @@ let expand cst =
            )
         | SimpleCommand_CmdName nam' ->
            let (cnv',cne) = self#visit_cmd_name' env nam' in
-           let cmd = Morbig.API.remove_quotes (unCmdName' cnv')
+           let cmd = Morbig.remove_quotes (unCmdName' cnv')
            in
            (
              SimpleCommand_CmdName cnv'

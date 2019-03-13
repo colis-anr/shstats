@@ -2,12 +2,9 @@
 
 * Installing
 
-Shstats depends on [[https://github.com/colis-anr/morbig][Morbig]] which has no stable release yet. In order to
-be able to build Shstats, you need to use the =ralf/exports= branch of
-Morbig.
+Shstats depends on morbig >= 0.10.0
 
-After that, all the dependencies of Shstats should be included in that
-of Morbig. A simple =make= should work.
+A simple =make= should work.
 
 * Example
 

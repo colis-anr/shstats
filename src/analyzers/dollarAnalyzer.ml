@@ -45,7 +45,7 @@ let process_script filename cst =
           Str.regexp ("\\$\\(" ^ re_parname ^ "\\)" ^
                         "\\|\\${\\(" ^ re_parname ^ "\\)}") in
         (* does not match stuff like $1, $2, $@, etc on purpose *)
-        let s = (Morbig.API.remove_quotes (unWord word)) in
+        let s = (Morbig.remove_quotes (unWord word)) in
         if
           Str.string_match re_parameter s 0
         then

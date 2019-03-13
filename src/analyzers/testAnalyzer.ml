@@ -292,7 +292,7 @@ let process_script filename csts =
   in
   
   let register_test filename invocation arguments =
-    let arguments_unquoted = List.map Morbig.API.remove_quotes arguments
+    let arguments_unquoted = List.map Morbig.remove_quotes arguments
     and is_bracket = (invocation = "[" )
     in
     incr count_testinvocations;
