@@ -50,38 +50,20 @@ module Handler = struct
     val subshells_counter = new Counters.occCounter "subshells"
     val globs_counter = new Counters.occCounter "globs"
 
-    method count_dollar_in_word filename representation w =
-      let string_mem s c =
-        try let _ = String.index s c in true
-        with Not_found -> false
-      in
-      (
-        let s = unWord w in
-        try
-          let i = String.index s '$' in
-          if String.length s > i + 1 && s.[i + 1] = '(' then
-            subshells_counter#add
-          else
-            variables_counter#add
-        with
-          Not_found ->
-          if string_mem s '`' then
-            subshells_counter#add
-          else if string_mem s '*' then
-            globs_counter#add
-          else if string_mem s '?' then
-            globs_counter#add
-          else
-            (fun _ _ -> ())
-      )
-        filename representation
+    method analyze_word filename representation w =
+      if MoreCSTHelpers.contains_subshell w then
+        subshells_counter#add filename representation;
+      if MoreCSTHelpers.contains_parameter w then
+        variables_counter#add filename representation;
+      if MoreCSTHelpers.contains_glob w then
+        variables_counter#add filename representation
 
-    method count_dollars_in_wordlist filename representation = function
+    method analyze_wordlist filename representation = function
       | WordList_WordList_Word (wordlist, word) ->
-         self#count_dollars_in_wordlist filename representation wordlist.value;
-         self#count_dollar_in_word filename representation word.value
+         self#analyze_wordlist filename representation wordlist.value;
+         self#analyze_word filename representation word.value
       | WordList_Word word ->
-         self#count_dollar_in_word filename representation word.value
+         self#analyze_word filename representation word.value
 
     method handle filename for_clause =
       super#handle filename for_clause;
@@ -90,7 +72,7 @@ module Handler = struct
       | ForClause_For_Name_SequentialSep_DoGroup _
       | ForClause_For_Name_LineBreak_In_SequentialSep_DoGroup _ -> ()
       | ForClause_For_Name_LineBreak_In_WordList_SequentialSep_DoGroup (_, _, wordlist', _, _) ->
-         self#count_dollars_in_wordlist filename "" (*FIXME: (pp_to_string pp_for_clause for_clause)*) wordlist'.value
+         self#analyze_wordlist filename "" (*FIXME: (pp_to_string pp_for_clause for_clause)*) wordlist'.value
 
     method output_report report =
       Report.add report
