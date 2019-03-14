@@ -12,9 +12,10 @@ open Options
 open Messages
 
    (* 
-      finds the files that contain a '$ symbol in some word. This might
-      be useful to estiamte how many files have parameters that have not
-      been expanded by the expander. 
+      finds the files that contain a parameter that is neither a special
+      parameter nor a positional parameter. This might be useful to estimate
+      how many files have parameters that have not been expanded by the
+      expander. 
     *)
    
 let unWord word = Morbig.CSTHelpers.unWord word
@@ -30,7 +31,7 @@ let register_identifier x =
   then Hashtbl.replace identifiers x (1+(Hashtbl.find identifiers x))
   else Hashtbl.add identifiers x 1
 
-let scripts_with_dollar = ref ([]: string list)
+           let scripts_with_dollar = ref ([]: string list)
 
 let process_script filename cst =
   let detect_dollar =
@@ -38,30 +39,25 @@ let process_script filename cst =
       inherit [_] Morbig.CST.reduce as super
       method zero = false
       method plus = (||)
-      method! visit_word for_variables word =
-        let re_parname =
-          "[a-zA-Z_][a-zA-Z_0-9@*?$!]*" in
-        let re_parameter =
-          Str.regexp ("\\$\\(" ^ re_parname ^ "\\)" ^
-                        "\\|\\${\\(" ^ re_parname ^ "\\)}") in
-        (* does not match stuff like $1, $2, $@, etc on purpose *)
-        let s = (Morbig.remove_quotes (unWord word)) in
-        if
-          Str.string_match re_parameter s 0
-        then
-          let parameter_name =  
-            try Str.matched_group 1 s
-            with Not_found -> Str.matched_group 2 s
-          in
-          if not (List.mem parameter_name for_variables)
-          then begin
-              register_identifier parameter_name;
-              true
-            end
-          else
-            false
-        else
-          false
+      method! visit_word_component for_variables = function
+        | WordVariable (VariableAtom(s,_)) ->
+           let re_special_or_positional_parameter =
+             (* special parameters: see section 2.5.2 of POSIX standard *)
+             (* positional parameters: see section 2.5.1 of POSIX standard *)
+             Str.regexp "^\\([-@*!?$#]\\|[0-9]+\\)$"
+           in
+           if not (Str.string_match re_special_or_positional_parameter s 0)
+           then
+             if not (List.mem s for_variables)
+             then begin
+                 register_identifier s;
+                 true
+               end
+             else (* this a loop variable *)
+               false
+           else (* this is a special or positional parameter *)
+             false
+        | x -> super#visit_word_component for_variables x
 
       method! visit_for_clause for_variables = function
         (* FIXME: consider only for loops for which the list is
