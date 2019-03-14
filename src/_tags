@@ -1,4 +1,5 @@
 <analyzers>: include
 <ext>: include
-true : package(morbig)
+true: package(morbig)
+true: package(morsmall)
 true: use_unix
