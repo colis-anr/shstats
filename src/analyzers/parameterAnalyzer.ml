@@ -23,7 +23,7 @@ let unName' name' = Morbig.CSTHelpers.unName name'.value
 
 let options = []
             
-let name = "dollar"
+let name = "parameters"
 
 let identifiers = ((Hashtbl.create 13): (string,int) Hashtbl.t)
 let register_identifier x =
@@ -31,10 +31,10 @@ let register_identifier x =
   then Hashtbl.replace identifiers x (1+(Hashtbl.find identifiers x))
   else Hashtbl.add identifiers x 1
 
-           let scripts_with_dollar = ref ([]: string list)
+let scripts_with_parameter = ref ([]: string list)
 
 let process_script filename cst =
-  let detect_dollar =
+  let detect_parameter =
     object (self)
       inherit [_] Morbig.CST.reduce as super
       method zero = false
@@ -73,13 +73,13 @@ let process_script filename cst =
     
     end
   in
-  if detect_dollar#visit_program [] cst
+  if detect_parameter#visit_program [] cst
   then 
-    scripts_with_dollar := filename::!scripts_with_dollar
+    scripts_with_parameter := filename::!scripts_with_parameter
 
 let output_report report =
   Report.add report "* Number of scripts with $ after expansion: %d\n"
-    (List.length !scripts_with_dollar);
+    (List.length !scripts_with_parameter);
   Report.add report "* Number of different parameters: %d\n"
     (Hashtbl.length identifiers);
   Report.add report "** Parameters\n";
@@ -96,7 +96,7 @@ let output_report report =
   List.iter
     (function scriptname ->
        Report.add report "    - %s\n" (Report.link_to_source report scriptname))
-    !scripts_with_dollar
+    !scripts_with_parameter
 
   
               
