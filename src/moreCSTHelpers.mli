@@ -16,3 +16,12 @@ val words_of_suffix' : cmd_suffix' -> word' list
 val unWord' : word' -> string
 val unCmdWord' : cmd_word' -> string
 val unCmdName' : cmd_name' -> string
+
+(* check whether a word contains a parameter *)
+val contains_parameter : word -> bool
+
+(* check whether a word contains a subshell *)
+val contains_subshell : word -> bool
+
+(* check whether a word contains a glob ( * or ? ) *)
+val contains_glob : word -> bool

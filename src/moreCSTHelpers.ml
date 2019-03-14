@@ -30,3 +30,39 @@ let words_of_suffix' s' = words_of_suffix' [] s'
 let unWord' word' = unWord word'.value
 let unCmdWord' {value=(CmdWord_Word word')} = unWord word'.value
 let unCmdName' {value=(CmdName_Word word')} = unWord word'.value
+
+let contains_parameter w =
+  let detect_parameter =
+    object(self)
+      inherit [_] Morbig.CST.reduce as super
+      method zero = false
+      method plus = (||)
+      method! visit_word_component _env = function
+        | WordVariable _ -> true
+        | _ -> false
+    end
+  in detect_parameter#visit_word () w
+
+let contains_subshell w =
+  let detect_subshell =
+    object(self)
+      inherit [_] Morbig.CST.reduce as super
+      method zero = false
+      method plus = (||)
+      method! visit_word_component _env = function
+        | WordSubshell _ -> true
+        | _ -> false
+    end
+  in detect_subshell#visit_word () w
+
+let contains_glob w =
+  let detect_glob =
+    object(self)
+      inherit [_] Morbig.CST.reduce as super
+      method zero = false
+      method plus = (||)
+      method! visit_word_component _env = function
+        | WordGlobAll | WordGlobAny -> true
+        | _ -> false
+    end
+  in detect_glob#visit_word () w
