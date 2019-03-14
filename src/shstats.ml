@@ -71,7 +71,7 @@ let () =
       (module RedirectionAnalyzer) ;
       (module StructureAnalyzer) ;
       (module TestAnalyzer) ;
-      (module ParametersAnalyzer) ;
+      (module ParameterAnalyzer) ;
       (module LocalAnalyzer) ;
       (module DotAnalyzer) ;
       (module DotdotPathAnalyzer) ;
