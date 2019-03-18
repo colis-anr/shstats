@@ -1,0 +1,8 @@
+#!/bin/sh
+
+\rm -r report
+find -L corpus -regextype posix-extended -regex '.*/(pre|post)(inst|rm)' | \
+    bin/shstats \
+	--cache \
+	--specification share/specification.org\
+	--report-path report
