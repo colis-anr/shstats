@@ -24,7 +24,14 @@ let int_length n =
   1 + int_of_float (log10 (0.5 +. float_of_int n))
 
 let spaces n =
-  String.make n ' '
+  String.make (max 0 n) ' '
+
+let fixed_size size str =
+  let len = String.length str in
+  if len <= size then
+    str ^ (spaces (size - len))
+  else
+    (String.sub str 0 (size - 3)) ^ "..."
 
 let bar n =
   if n = 0 then "" else (String.make (n - 1) '=') ^ ">"
@@ -66,8 +73,8 @@ let percentage ?(scale=100) l =
 
 let eprint l =
   let open Format in
-  eprintf "\r%s%s %3s %s%d/%d [%s%s] %3d%%@?"
-    l.name (spaces (l.len_txt - String.length l.name))
+  eprintf "\r%s %3s %s%d/%d [%s%s] %3d%%@?"
+    (fixed_size l.len_txt l.name)
     (time_to_string l.elapsed)
     (spaces (l.len_int - int_length l.curr)) l.curr l.total
     (bar (percentage ~scale:l.len_bar l)) (spaces (l.len_bar - percentage ~scale:l.len_bar l))
