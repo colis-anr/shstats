@@ -76,6 +76,7 @@ let () =
       (module DotAnalyzer) ;
       (module DotdotPathAnalyzer) ;
       (module WordNestingAnalyzer) ;
+      (module ParameterModifierAnalyzer) ;
     ]
 
   (* Parse command line *)
