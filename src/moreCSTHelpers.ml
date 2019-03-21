@@ -62,7 +62,7 @@ let contains_glob w =
       method zero = false
       method plus = (||)
       method! visit_word_component _env = function
-        | WordGlobAll | WordGlobAny -> true
+        | WordGlobAll | WordGlobAny | WordReBracketExpression _ -> true
         | _ -> false
     end
   in detect_glob#visit_word () w
