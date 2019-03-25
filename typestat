@@ -1,0 +1,42 @@
+#!/bin/sh
+
+listcorpus () {
+    find -L corpus \
+	 -type f \
+	 -regextype posix-extended -regex '.*/(pre|post)(inst|rm)'
+}
+
+echo -n "Number of (pre|post)|(rm|inst): "
+listcorpus | wc -l
+
+echo "Types found (according to find): "
+echo "----------------------------------------------------------------------"
+listcorpus | xargs file -b | sort | uniq
+echo "----------------------------------------------------------------------"
+
+listcorpus | xargs file -b > .filetypes
+echo -n "Number of Posix shell scripts: "
+echo -n "(according to file:) "
+cat .filetypes |  grep -c "POSIX shell script"
+
+echo -n "Number of Perl scripts "
+echo -n "(according to file:) "
+cat .filetypes | grep -c "Perl script"
+
+echo -n "Number of Bash scripts "
+echo -n "(according to file:) "
+cat .filetypes | grep -c "Bourne-Again shell script"
+
+echo -n "Number of Dash scripts "
+echo -n "(according to file:) "
+cat .filetypes | grep -c "/bin/dash"
+
+echo -n "Number of ELF executables "
+echo -n "(according to file:) "
+cat .filetypes | grep -c "ELF"
+
+echo -n "Number of ASCII text "
+echo -n "(according to file:) "
+cat .filetypes |  grep -c -x "ASCII text"
+
+rm .filetypes
