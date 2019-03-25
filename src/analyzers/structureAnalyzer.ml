@@ -80,21 +80,21 @@ module Handler = struct
         name !counter !files_counter;
 
       Report.add report
-        "*** %d variables in %d files (%f%%)\n"
+        "*** wordlists have %d variables in %d files (%f%%)\n"
         (variables_counter#n_occurrences())
         (variables_counter#n_files())
         (percentage (variables_counter#n_files()) !files_counter);
       variables_counter#output_occurrences report;
 
       Report.add report
-        "*** %d subshells in %d files (%f%%)\n"
+        "*** wordlists have %d subshells in %d files (%f%%)\n"
         (subshells_counter#n_occurrences())
         (subshells_counter#n_files())
         (percentage (subshells_counter#n_files()) !files_counter);
       subshells_counter#output_occurrences report;
 
       Report.add report
-        "*** %d globs in %d (%f%%) files\n"
+        "*** wordlists have %d globs in %d (%f%%) files\n"
         (globs_counter#n_occurrences())
         (globs_counter#n_files())
         (percentage (globs_counter#n_files()) !files_counter);
