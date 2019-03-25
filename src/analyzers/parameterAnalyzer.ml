@@ -22,16 +22,17 @@ let unWord word = Morbig.CSTHelpers.unWord word
 let unName' name' = Morbig.CSTHelpers.unName name'.value
 
 let options = []
-            
 let name = "parameters"
 
 let identifiers = ((Hashtbl.create 13): (string,int) Hashtbl.t)
-let register_identifier x =
+and files       = ((Hashtbl.create 13): (string,int) Hashtbl.t)
+let register_identifier x f =
   if Hashtbl.mem identifiers x
   then Hashtbl.replace identifiers x (1+(Hashtbl.find identifiers x))
-  else Hashtbl.add identifiers x 1
-
-let scripts_with_parameter = ref ([]: string list)
+  else Hashtbl.add identifiers x 1;
+  if Hashtbl.mem files f
+  then Hashtbl.replace files f (1+(Hashtbl.find files f))
+  else Hashtbl.add files f 1
 
 let expandable_word w =
     MoreCSTHelpers.contains_parameter w
@@ -42,14 +43,11 @@ let rec expandable_wordlist = function
   | WordList_WordList_Word(wordlist',word') ->
      expandable_wordlist wordlist'.value || expandable_word word'.value
   | WordList_Word(word') -> expandable_word word'.value
-
   
 let process_script filename cst =
   let detect_parameter =
     object (self)
-      inherit [_] Morbig.CST.reduce as super
-      method zero = false
-      method plus = (||)
+      inherit [_] Morbig.CST.iter as super
       method! visit_word_component for_variables = function
         | WordVariable (VariableAtom(s,_)) ->
            let re_special_or_positional_parameter =
@@ -60,14 +58,7 @@ let process_script filename cst =
            if not (Str.string_match re_special_or_positional_parameter s 0)
            then
              if not (List.mem s for_variables)
-             then begin
-                 register_identifier s;
-                 true
-               end
-             else (* this a loop variable *)
-               false
-           else (* this is a special or positional parameter *)
-             false
+             then register_identifier s filename;
         | x -> super#visit_word_component for_variables x
 
       method! visit_for_clause for_variables = function
@@ -86,14 +77,11 @@ let process_script filename cst =
              do_group'
     
     end
-  in
-  if detect_parameter#visit_program [] cst
-  then 
-    scripts_with_parameter := filename::!scripts_with_parameter
+  in detect_parameter#visit_program [] cst
 
 let output_report report =
   Report.add report "* Number of scripts with $ after expansion: %d\n"
-    (List.length !scripts_with_parameter);
+    (Hashtbl.length files);
   Report.add report "* Number of different parameters: %d\n"
     (Hashtbl.length identifiers);
   Report.add report "** Parameters\n";
@@ -107,10 +95,10 @@ let output_report report =
           []
        ));
   Report.add report "** Files:\n";
-  List.iter
-    (function scriptname ->
+  Hashtbl.iter
+    (fun scriptname _ ->
        Report.add report "    - %s\n" (Report.link_to_source report scriptname))
-    !scripts_with_parameter
+    files
 
   
               
