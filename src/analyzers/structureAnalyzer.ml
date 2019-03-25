@@ -56,7 +56,7 @@ module Handler = struct
       if MoreCSTHelpers.contains_parameter w then
         variables_counter#add filename representation;
       if MoreCSTHelpers.contains_glob w then
-        variables_counter#add filename representation
+        globs_counter#add filename representation;
 
     method analyze_wordlist filename representation = function
       | WordList_WordList_Word (wordlist, word) ->
@@ -80,21 +80,24 @@ module Handler = struct
         name !counter !files_counter;
 
       Report.add report
-        "*** %d (%f%%) contain a variable\n"
+        "*** %d variables in %d files (%f%%)\n"
         (variables_counter#n_occurrences())
-        (percentage (variables_counter#n_occurrences()) !counter);
+        (variables_counter#n_files())
+        (percentage (variables_counter#n_files()) !files_counter);
       variables_counter#output_occurrences report;
 
       Report.add report
-        "*** %d (%f%%) contain a subshell\n"
+        "*** %d subshells in %d files (%f%%)\n"
         (subshells_counter#n_occurrences())
-        (percentage (subshells_counter#n_occurrences()) !counter);
+        (subshells_counter#n_files())
+        (percentage (subshells_counter#n_files()) !files_counter);
       subshells_counter#output_occurrences report;
 
       Report.add report
-        "*** %d (%f%%) contain a glob\n"
+        "*** %d globs in %d (%f%%) files\n"
         (globs_counter#n_occurrences())
-        (percentage (globs_counter#n_occurrences()) !counter);
+        (globs_counter#n_files())
+        (percentage (globs_counter#n_files()) !files_counter);
       globs_counter#output_occurrences report
   end
 
