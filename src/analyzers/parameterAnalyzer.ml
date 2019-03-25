@@ -33,6 +33,17 @@ let register_identifier x =
 
 let scripts_with_parameter = ref ([]: string list)
 
+let expandable_word w =
+    MoreCSTHelpers.contains_parameter w
+    || MoreCSTHelpers.contains_glob w
+    || MoreCSTHelpers.contains_subshell w
+
+let rec expandable_wordlist = function
+  | WordList_WordList_Word(wordlist',word') ->
+     expandable_wordlist wordlist'.value || expandable_word word'.value
+  | WordList_Word(word') -> expandable_word word'.value
+
+  
 let process_script filename cst =
   let detect_parameter =
     object (self)
@@ -60,16 +71,19 @@ let process_script filename cst =
         | x -> super#visit_word_component for_variables x
 
       method! visit_for_clause for_variables = function
-        (* FIXME: consider only for loops for which the list is
-           statistically known. *)
         | ForClause_For_Name_DoGroup(name',do_group')
           | ForClause_For_Name_SequentialSep_DoGroup
               (name',_,do_group')
           | ForClause_For_Name_LineBreak_In_SequentialSep_DoGroup 
-              (name',_,_,do_group')
-          | ForClause_For_Name_LineBreak_In_WordList_SequentialSep_DoGroup
-              (name',_,_,_,do_group') ->
+              (name',_,_,do_group') ->
            self#visit_do_group' ((unName' name')::for_variables) do_group'
+        | ForClause_For_Name_LineBreak_In_WordList_SequentialSep_DoGroup
+          (name',_,word_list',_,do_group') ->
+           self#visit_do_group'
+             (if expandable_wordlist word_list'.value
+              then for_variables
+              else (unName' name')::for_variables)
+             do_group'
     
     end
   in
