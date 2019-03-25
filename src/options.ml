@@ -8,7 +8,7 @@
 
 let list_of_files = ref "-"
 let report_path = ref ""
-let expander = ref true
+let expander = ref false
 let cache = ref false
 let save_json = ref false
           
@@ -33,10 +33,12 @@ let options () =
     ("--from-file",
      Arg.Set_string list_of_files,
      "FILE Get the list of files from FILE")
+  (*
   ::
     ("--expander",
      Arg.Unit (set expander true),
      " Enable static expansion of variables (default)")
+   *)
   ::
     ("--no-expander",
      Arg.Unit (set expander false),
