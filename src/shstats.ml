@@ -155,7 +155,7 @@ let () =
 (* Expand files that have not been loaded from the cache *)
 
 let files =
-  if !Options.expander && (List.length files - !cache_files - !invalid_files) > 0 then
+  if !Options.expander then
     (
       let pl = Progress.create "Expanding" (List.length files - !cache_files - !invalid_files) in
       let files =
@@ -215,7 +215,7 @@ let () =
         files;
       Progress.close pl
     )
-  
+
 (* Give all the files to the analyzers *)
 
 let () =

@@ -54,7 +54,6 @@ type t =
     len_txt : int ; len_int : int ; len_bar : int ; refresh : int }
 
 let create name total =
-  assert (total > 0);
   let term_cols = term_cols () in
   let len_int = int_length total in
   let len_txt = term_cols / 3 in

@@ -11,7 +11,7 @@ let report_path = ref ""
 let expander = ref false
 let cache = ref false
 let save_json = ref false
-          
+
 let set reference value () =
   reference := value
 
